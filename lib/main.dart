@@ -14,25 +14,54 @@ Future<void> main() async {
   runApp(const RisaleVecizeApp());
 }
 
-class RisaleVecizeApp extends StatelessWidget {
+class RisaleVecizeApp extends StatefulWidget {
   const RisaleVecizeApp({super.key});
   @override
+  State<RisaleVecizeApp> createState() => _RisaleVecizeAppState();
+}
+
+class _RisaleVecizeAppState extends State<RisaleVecizeApp> {
+  int _temaIdx = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((p) {
+      final idx = p.getInt('tema_index') ?? 0;
+      if (mounted && idx >= 0 && idx < temalar.length) setState(() => _temaIdx = idx);
+    });
+  }
+
+  Future<void> _temaDegistir(int idx) async {
+    setState(() => _temaIdx = idx);
+    final p = await SharedPreferences.getInstance();
+    await p.setInt('tema_index', idx);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final tema = temalar[_temaIdx];
     return MaterialApp(
       title: 'Risale-i Nur Vecize',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF14532D)),
-        scaffoldBackgroundColor: const Color(0xFFFDFBF7),
+        fontFamily: 'serif',
+        brightness: tema.koyuMu ? Brightness.dark : Brightness.light,
+        colorScheme: ColorScheme.fromSeed(seedColor: tema.ana, brightness: tema.koyuMu ? Brightness.dark : Brightness.light),
+        scaffoldBackgroundColor: tema.zemin,
       ),
-      home: const AnaSayfa(),
+      home: AnaSayfa(tema: tema, temaIdx: _temaIdx, onTemaSec: _temaDegistir),
     );
   }
 }
 
 class AnaSayfa extends StatefulWidget {
-  const AnaSayfa({super.key});
+  final UygulamaTemasi tema;
+  final int temaIdx;
+  final Future<void> Function(int) onTemaSec;
+  const AnaSayfa({super.key, required this.tema, required this.temaIdx, required this.onTemaSec});
+
   @override
   State<AnaSayfa> createState() => _AnaSayfaState();
 }
@@ -40,7 +69,7 @@ class AnaSayfa extends StatefulWidget {
 class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
   int _sekme = 0, _index = 0, _periyodikDk = 60;
   String _seciliEser = 'Tümü', _aramaMetni = '';
-  List<String> _saatler = ['08:30', '21:00'], _favoriler = [];
+  List<String> _saatler = ['08:30', '21:00'], _favoriler = [], _silinenler = [];
   List<Vecize> _ozelVecizeler = [];
   bool _periyodikAktif = false, _alarmIzniVar = true;
 
@@ -68,7 +97,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
     if (ok) await _planla();
   }
 
-  List<Vecize> get _tumVecizeler => [..._ozelVecizeler, ...varsayilanVecizeler];
+  List<Vecize> get _tumVecizeler => [..._ozelVecizeler, ...varsayilanVecizeler.where((v) => !_silinenler.contains(v.metin))];
 
   List<Vecize> get _liste {
     final q = _aramaMetni.trim().toLowerCase();
@@ -79,12 +108,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
     }).toList();
   }
 
-  Future<String?> _planla() => bildirimleriPlanla(
-        havuz: _tumVecizeler,
-        saatler: _saatler,
-        periyodikAktif: _periyodikAktif,
-        periyodikDk: _periyodikDk,
-      );
+  Future<String?> _planla() => bildirimleriPlanla(havuz: _tumVecizeler, saatler: _saatler, periyodikAktif: _periyodikAktif, periyodikDk: _periyodikDk);
 
   Future<void> _baslat() async {
     final ok = await alarmIzniKontrol();
@@ -94,6 +118,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
       _alarmIzniVar = ok;
       _saatler = prefs.getStringList('saatler') ?? ['08:30', '21:00'];
       _favoriler = prefs.getStringList('favoriler') ?? [];
+      _silinenler = prefs.getStringList('silinen_vecizeler') ?? [];
       _periyodikAktif = prefs.getBool('periyodik_aktif') ?? false;
       _periyodikDk = prefs.getInt('periyodik_dakika') ?? 60;
       _ozelVecizeler = kayitli.map((e) => Vecize.fromMap(jsonDecode(e) as Map<String, dynamic>)).toList();
@@ -104,6 +129,8 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
   Future<void> _ozelKaydet() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('ozel_vecizeler', _ozelVecizeler.map((v) => jsonEncode(v.toMap())).toList());
+    await prefs.setStringList('silinen_vecizeler', _silinenler);
+    await prefs.setStringList('favoriler', _favoriler);
     await _planla();
   }
 
@@ -120,11 +147,47 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
     final eklendi = !_favoriler.contains(metin);
     setState(() => eklendi ? _favoriler.add(metin) : _favoriler.remove(metin));
     await prefs.setStringList('favoriler', _favoriler);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(duration: const Duration(seconds: 1), content: Text(eklendi ? 'Favorilere eklendi.' : 'Favorilerden çıkarıldı.')),
-      );
-    }
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(duration: const Duration(seconds: 1), content: Text(eklendi ? 'Favorilere eklendi.' : 'Favorilerden çıkarıldı.')));
+  }
+
+  Future<void> _vecizeSil(Vecize v) async {
+    final onay = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Vecize Silinsin mi?'),
+        content: const Text('Bu vecize listeden kaldırılacak.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+        ],
+      ),
+    );
+    if (onay != true) return;
+    setState(() {
+      _ozelVecizeler.removeWhere((e) => e.metin == v.metin);
+      if (varsayilanVecizeler.any((e) => e.metin == v.metin) && !_silinenler.contains(v.metin)) _silinenler.add(v.metin);
+      _favoriler.remove(v.metin);
+      if (_index > 0) _index--;
+    });
+    await _ozelKaydet();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vecize silindi.')));
+  }
+
+  Future<void> _vecizeDuzenle(Vecize eski, Vecize yeni) async {
+    setState(() {
+      final idx = _ozelVecizeler.indexWhere((e) => e.metin == eski.metin);
+      if (idx != -1) {
+        _ozelVecizeler[idx] = yeni;
+      } else {
+        if (!_silinenler.contains(eski.metin)) _silinenler.add(eski.metin);
+        _ozelVecizeler.insert(0, yeni);
+        _index = 0;
+      }
+      final favIdx = _favoriler.indexOf(eski.metin);
+      if (favIdx != -1) _favoriler[favIdx] = yeni.metin;
+    });
+    await _ozelKaydet();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vecize güncellendi.')));
   }
 
   Future<void> _saatEkle() async {
@@ -141,23 +204,43 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final t = widget.tema;
     final aktifHavuz = _liste.isNotEmpty ? _liste : _tumVecizeler;
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF14532D),
+        backgroundColor: t.ana,
         foregroundColor: Colors.white,
-        title: Text('Risale-i Nur (${_tumVecizeler.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Risale-i Nur (${_tumVecizeler.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'serif')),
         actions: [
+          PopupMenuButton<int>(
+            tooltip: 'Tema Değiştir',
+            icon: const Icon(Icons.palette_outlined),
+            onSelected: widget.onTemaSec,
+            itemBuilder: (_) => List.generate(
+              temalar.length,
+              (i) => PopupMenuItem(
+                value: i,
+                child: Row(
+                  children: [
+                    CircleAvatar(radius: 8, backgroundColor: temalar[i].ana),
+                    const SizedBox(width: 10),
+                    Text(temalar[i].ad, style: TextStyle(fontWeight: widget.temaIdx == i ? FontWeight.bold : FontWeight.normal)),
+                  ],
+                ),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Vecize Ekle',
             icon: const Icon(Icons.add_circle_outline),
             onPressed: () => vecizeEkleGoster(
               context: context,
               tumVecizeler: _tumVecizeler,
+              tema: t,
               onEkle: (yeniler) async {
                 setState(() { _ozelVecizeler.insertAll(0, yeniler); _index = 0; });
                 await _ozelKaydet();
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${yeniler.length} yeni vecize arşive eklendi.')));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${yeniler.length} yeni vecize eklendi.')));
               },
             ),
           ),
@@ -167,7 +250,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
       body: _sekme == 0
           ? _vecizeEkrani()
           : _sekme == 1
-              ? favorilerSayfasi(tumVecizeler: _tumVecizeler, favoriler: _favoriler, onFavoriSil: _favoriDegistir)
+              ? favorilerSayfasi(tumVecizeler: _tumVecizeler, favoriler: _favoriler, tema: t, onFavoriSil: _favoriDegistir)
               : Column(
                   children: [
                     alarmIzinUyarisi(_alarmIzniVar),
@@ -176,6 +259,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
                         saatler: _saatler,
                         periyodikAktif: _periyodikAktif,
                         periyodikDk: _periyodikDk,
+                        tema: t,
                         onSaatEkle: _saatEkle,
                         onSaatSil: (s) async { setState(() => _saatler.remove(s)); await _ayarKaydet(); },
                         onPeriyodikDegistir: (val) async {
@@ -183,18 +267,14 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
                           final prefs = await SharedPreferences.getInstance();
                           await prefs.setBool('periyodik_aktif', _periyodikAktif);
                           final ilkSaat = await _planla();
-                          if (mounted && val && ilkSaat != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Kuruldu! İlk bildirim $ilkSaat saatinde gelecek.')));
-                          }
+                          if (mounted && val && ilkSaat != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Kuruldu! İlk bildirim $ilkSaat saatinde gelecek.')));
                         },
                         onDakikaSec: (dk) async {
                           setState(() => _periyodikDk = dk);
                           final prefs = await SharedPreferences.getInstance();
                           await prefs.setInt('periyodik_dakika', _periyodikDk);
                           final ilkSaat = await _planla();
-                          if (mounted && _periyodikAktif && ilkSaat != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Güncellendi! İlk bildirim $ilkSaat saatinde gelecek.')));
-                          }
+                          if (mounted && _periyodikAktif && ilkSaat != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Güncellendi! İlk bildirim $ilkSaat saatinde gelecek.')));
                         },
                         onTestBildirim: () => zamanliTestBildirim(context, aktifHavuz, _index),
                       ),
@@ -202,6 +282,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
                   ],
                 ),
       bottomNavigationBar: NavigationBar(
+        backgroundColor: t.kart,
         selectedIndex: _sekme,
         onDestinationSelected: (i) => setState(() => _sekme = i),
         destinations: [
@@ -218,6 +299,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
   }
 
   Widget _vecizeEkrani() {
+    final t = widget.tema;
     final liste = _liste;
     final v = liste.isNotEmpty ? liste[_index % liste.length] : null;
     final aktifSira = liste.isNotEmpty ? (_index % liste.length) + 1 : 0;
@@ -229,12 +311,13 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
         children: [
           TextField(
             onChanged: (val) => setState(() { _aramaMetni = val; _index = 0; }),
+            style: TextStyle(color: t.yazi),
             decoration: InputDecoration(
               hintText: 'Vecize veya kaynak ara...',
               prefixIcon: const Icon(Icons.search),
               isDense: true,
               filled: true,
-              fillColor: Colors.white,
+              fillColor: t.kart,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             ),
           ),
@@ -251,8 +334,9 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
                 return ChoiceChip(
                   label: Text(e),
                   selected: s,
-                  selectedColor: const Color(0xFF14532D),
-                  labelStyle: TextStyle(color: s ? Colors.white : Colors.black87, fontWeight: FontWeight.w600),
+                  selectedColor: t.ana,
+                  backgroundColor: t.kart,
+                  labelStyle: TextStyle(color: s ? Colors.white : t.yazi, fontWeight: FontWeight.w600),
                   onSelected: (_) => setState(() { _seciliEser = e; _index = 0; }),
                 );
               },
@@ -261,34 +345,57 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
           const SizedBox(height: 12),
           Expanded(
             child: v == null
-                ? const Center(child: Text('Aramanıza uygun vecize bulunamadı.'))
+                ? Center(child: Text(_tumVecizeler.isEmpty ? 'Henüz vecize yok. Sağ üstteki + butonundan ekleyebilirsiniz.' : 'Aramanıza uygun vecize bulunamadı.', textAlign: TextAlign.center, style: TextStyle(color: t.yazi)))
                 : Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFD97706), width: 1.2)),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('$aktifSira / ${liste.length}', style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
-                            const Icon(Icons.format_quote_rounded, size: 32, color: Color(0xFFD97706)),
-                            IconButton(
-                              onPressed: () => _favoriDegistir(v.metin),
-                              icon: Icon(favoriMi ? Icons.favorite : Icons.favorite_border, color: favoriMi ? Colors.red : Colors.black54, size: 28),
-                            ),
-                          ],
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: SingleChildScrollView(
-                              child: Text('“${v.metin}”', textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, height: 1.5, fontWeight: FontWeight.w600)),
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(color: t.kart, borderRadius: BorderRadius.circular(24), border: Border.all(color: t.vurgu, width: 1.8)),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(19), border: Border.all(color: t.vurgu, width: 0.7)),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('$aktifSira / ${liste.length}', style: TextStyle(color: t.koyuMu ? Colors.white60 : Colors.black54, fontWeight: FontWeight.bold)),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Düzenle',
+                                    onPressed: () => vecizeDuzenleGoster(context: context, vecize: v, tema: t, onKaydet: (yeni) => _vecizeDuzenle(v, yeni)),
+                                    icon: Icon(Icons.edit_outlined, color: t.koyuMu ? t.vurgu : t.ana, size: 22),
+                                  ),
+                                  IconButton(tooltip: 'Sil', onPressed: () => _vecizeSil(v), icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22)),
+                                  IconButton(
+                                    tooltip: 'Favori',
+                                    onPressed: () => _favoriDegistir(v.metin),
+                                    icon: Icon(favoriMi ? Icons.favorite : Icons.favorite_border, color: favoriMi ? Colors.red : (t.koyuMu ? Colors.white60 : Colors.black54), size: 24),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: SingleChildScrollView(
+                                child: Text(
+                                  '“${v.metin}”',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 21, height: 1.6, letterSpacing: 0.2, fontWeight: FontWeight.w600, fontFamily: 'serif', color: t.yazi),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        Chip(label: Text(v.kaynak, style: const TextStyle(color: Color(0xFF14532D), fontWeight: FontWeight.bold))),
-                      ],
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(color: t.zemin, borderRadius: BorderRadius.circular(20), border: Border.all(color: t.vurgu, width: 0.9)),
+                            child: Text(v.kaynak, style: TextStyle(color: t.koyuMu ? t.vurgu : t.ana, fontWeight: FontWeight.bold, fontFamily: 'serif')),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
           ),
@@ -300,7 +407,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
                 const SizedBox(width: 6),
                 Expanded(
                   child: FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF14532D), padding: const EdgeInsets.symmetric(vertical: 14)),
+                    style: FilledButton.styleFrom(backgroundColor: t.ana, padding: const EdgeInsets.symmetric(vertical: 14)),
                     onPressed: () {
                       if (liste.length <= 1) return;
                       final rnd = Random();
@@ -309,7 +416,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
                       setState(() => _index = yeni);
                     },
                     icon: const Icon(Icons.shuffle),
-                    label: const Text('Yeni Vecize'),
+                    label: const Text('Yeni Vecize', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -323,11 +430,7 @@ class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
                   icon: const Icon(Icons.copy),
                 ),
                 const SizedBox(width: 6),
-                IconButton.filled(
-                  style: IconButton.styleFrom(backgroundColor: const Color(0xFFD97706)),
-                  onPressed: () => Share.share('“${v.metin}”\n— ${v.kaynak}'),
-                  icon: const Icon(Icons.share),
-                ),
+                IconButton.filled(style: IconButton.styleFrom(backgroundColor: t.vurgu), onPressed: () => Share.share('“${v.metin}”\n— ${v.kaynak}'), icon: const Icon(Icons.share, color: Colors.white)),
               ],
             ),
           ],

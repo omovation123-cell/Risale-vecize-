@@ -17,7 +17,7 @@ Future<void> main() async {
   tz.initializeTimeZones();
   tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
   await notificationsPlugin.initialize(
-    const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+    settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
   );
   runApp(const RisaleVecizeApp());
 }
@@ -133,9 +133,12 @@ class _AnaSayfaState extends State<AnaSayfa> {
       if (hedef.isBefore(simdi)) hedef = hedef.add(const Duration(days: 1));
       final v = havuz[rnd.nextInt(havuz.length)];
       await notificationsPlugin.zonedSchedule(
-        100 + i, 'Risale-i Nur • ${v.kaynak}', '“${v.metin}”', hedef, _bildirimDetay,
+        id: 100 + i,
+        title: 'Risale-i Nur • ${v.kaynak}',
+        body: '“${v.metin}”',
+        scheduledDate: hedef,
+        notificationDetails: _bildirimDetay,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time,
       );
     }
@@ -145,9 +148,12 @@ class _AnaSayfaState extends State<AnaSayfa> {
         final hedef = simdi.add(Duration(minutes: _periyodikDk * k));
         final v = havuz[rnd.nextInt(havuz.length)];
         await notificationsPlugin.zonedSchedule(
-          500 + k, 'Risale-i Nur • ${v.kaynak}', '“${v.metin}”', hedef, _bildirimDetay,
+          id: 500 + k,
+          title: 'Risale-i Nur • ${v.kaynak}',
+          body: '“${v.metin}”',
+          scheduledDate: hedef,
+          notificationDetails: _bildirimDetay,
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         );
       }
     }
@@ -156,7 +162,12 @@ class _AnaSayfaState extends State<AnaSayfa> {
   Future<void> _testBildirim() async {
     final havuz = _liste.isNotEmpty ? _liste : _tumVecizeler;
     final v = havuz[_index % havuz.length];
-    await notificationsPlugin.show(999, 'Risale-i Nur • ${v.kaynak}', '“${v.metin}”', _bildirimDetay);
+    await notificationsPlugin.show(
+      id: 999,
+      title: 'Risale-i Nur • ${v.kaynak}',
+      body: '“${v.metin}”',
+      notificationDetails: _bildirimDetay,
+    );
   }
 
   Future<void> _saatEkle() async {

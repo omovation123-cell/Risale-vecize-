@@ -25,7 +25,7 @@ jobs:
       - name: Projeyi hazirla
         run: |
           flutter create --org com.omovation --project-name risale_vecize app_build
-          cp lib/main.dart app_build/lib/main.dart
+          cp lib/*.dart app_build/lib/
           cd app_build
           flutter pub add flutter_local_notifications share_plus shared_preferences timezone
 

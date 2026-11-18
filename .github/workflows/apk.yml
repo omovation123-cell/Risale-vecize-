@@ -62,6 +62,7 @@ jobs:
           if os.path.exists(kts_path):
               with open(kts_path, "r") as f:
                   g = f.read()
+              g = re.sub(r'compileSdk\s*=\s*[^\n]+', 'compileSdk = 37', g, count=1)
               g = g.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
               g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
               with open(kts_path, "w") as f:
@@ -77,4 +78,3 @@ jobs:
         with:
           name: Risale-Vecize-APK
           path: app_build/build/app/outputs/flutter-apk/app-release.apk
-          

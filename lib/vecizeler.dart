@@ -1,13 +1,16 @@
 class Vecize {
-  final String metin, kaynak, eser;
-  const Vecize(this.metin, this.kaynak, this.eser);
+  final String metin;
+  final String kaynak;
+  final String eser;
 
-  Map<String, dynamic> toMap() => {'m': metin, 'k': kaynak, 'e': eser};
+  const Vecize({required this.metin, required this.kaynak, required this.eser});
+
+  Map<String, dynamic> toMap() => {'metin': metin, 'kaynak': kaynak, 'eser': eser};
 
   factory Vecize.fromMap(Map<String, dynamic> map) => Vecize(
-        map['m'] ?? '',
-        map['k'] ?? 'Risale-i Nur',
-        map['e'] ?? 'Sözler',
+        metin: map['metin'] ?? '',
+        kaynak: map['kaynak'] ?? '',
+        eser: map['eser'] ?? 'Diğer',
       );
 }
 
@@ -21,55 +24,254 @@ const List<String> eserListesi = [
   'Barla Lâhikası',
   'Kastamonu Lâhikası',
   'Emirdağ Lâhikası',
+  'Diğer',
 ];
 
 const List<Vecize> varsayilanVecizeler = [
-  Vecize('İman hem nurdur, hem kuvvettir. Evet, hakiki imanı elde eden adam, kâinata meydan okuyabilir.', 'Sözler, Yirmi Üçüncü Söz', 'Sözler'),
-  Vecize('Kadere iman eden, kederden emin olur.', 'Sözler, Yirmi Altıncı Söz', 'Sözler'),
-  Vecize('Bismillah her hayrın başıdır. Biz dahi başta ona başlarız.', 'Sözler, Birinci Söz', 'Sözler'),
-  Vecize('Dost istersen Allah yeter. Evet, o dost ise her şey dosttur.', 'Sözler, Yirmi Üçüncü Söz', 'Sözler'),
-  Vecize('Hayat bir sermayedir; sarf edilip gidiyor. Eğer meyvesi bulunmazsa zayi olur.', 'Sözler, Yirmi Dördüncü Söz', 'Sözler'),
-  Vecize('Her şeyde, hattâ en çirkin görünen şeylerde, hakiki bir hüsün ciheti vardır.', 'Sözler, On Sekizinci Söz', 'Sözler'),
-  Vecize('Ey nefis! Bil ki, dünkü gün senin elinden çıktı, yarın ise senin elinde senet yok ki ona maliksin. Öyle ise hakiki ömrünü bulunduğun gün bil.', 'Sözler, Yirmi Birinci Söz', 'Sözler'),
-  Vecize('İman insanı insan eder, belki insanı sultan eder.', 'Sözler, Yirmi Üçüncü Söz', 'Sözler'),
-  Vecize('Güzel gören güzel düşünür. Güzel düşünen hayatından lezzet alır.', 'Mektubat, Hakikat Çekirdekleri', 'Mektubat'),
-  Vecize('Bâki hakikatler fâni şahsiyetler üzerine bina edilmez.', 'Mektubat, Yirmi Dokuzuncu Mektup', 'Mektubat'),
-  Vecize('Zaman ihtiyarlandıkça Kur’ân gençleşiyor, rumuzu tavazzuh ediyor.', 'Mektubat, Yirmi Altıncı Mektup', 'Mektubat'),
-  Vecize('Hakkın hatırı âlidir, hiçbir hatıra feda edilmez.', 'Mektubat, Yirmi İkinci Mektup', 'Mektubat'),
-  Vecize('Fenalık fenalıkla def edilmez, belki iyilikle mukabele edilir.', 'Mektubat, Yirmi İkinci Mektup', 'Mektubat'),
-  Vecize('Muhabbete en lâyık şey muhabbettir ve husumete en lâyık sıfat husumettir.', 'Mektubat, Yirmi İkinci Mektup', 'Mektubat'),
-  Vecize('Şükür nimeti ziyadeleştirir, şekva musibeti ikileştirir.', 'Mektubat, Yirmi Sekizinci Mektup', 'Mektubat'),
-  Vecize('İhlâs, amelinizde rıza-yı İlâhîyi gaye edinmektir.', 'Lem’alar, Yirmi Birinci Lem’a', 'Lem’alar'),
-  Vecize('Elhasıl: Dünya madem fânidir. Hem madem ömür kısadır. Hem madem en lüzumlu vazifeler çoktur. Öyleyse ehemmiyetli vazifeleri öne almak gerektir.', 'Lem’alar, Yirmi Birinci Lem’a', 'Lem’alar'),
-  Vecize('Kardeşlerinizin nefislerini nefsinize şerefte, makamda, teveccühte, hattâ menfaat-i maddiye gibi nefsin hoşuna giden şeylerde tercih ediniz.', 'Lem’alar, Yirmi Birinci Lem’a', 'Lem’alar'),
-  Vecize('İktisat hem bir şükr-ü manevî, hem nimetlerdeki rahmet-i İlâhiyeye karşı bir hürmet, hem kat’î bir surette sebeb-i berekettir.', 'Lem’alar, On Dokuzuncu Lem’a', 'Lem’alar'),
-  Vecize('Hastalık, sabredenler için bir keffaretü’z-zünub ve bir ibadet-i kübrâdır.', 'Lem’alar, Yirmi Beşinci Lem’a', 'Lem’alar'),
-  Vecize('Tevazu, mahviyet ve terk-i enaniyet, bu zamanın en mühim bir düsturudur.', 'Lem’alar, Yirmi Birinci Lem’a', 'Lem’alar'),
-  Vecize('Kur’ân-ı Hakîmin eczaları olan Risale-i Nur, bu asrın yaralarına en tesirli bir tiryaktır.', 'Şualar, On Üçüncü Şua', 'Şualar'),
-  Vecize('İman tevhidi, tevhid teslimi, teslim tevekkülü, tevekkül saadet-i dâreyni iktiza eder.', 'Şualar, İkinci Şua', 'Şualar'),
-  Vecize('Sabır ve şükür ve tevekkül ile her musibet hafifleşir, rahmete inkılâp eder.', 'Şualar, On Birinci Şua', 'Şualar'),
-  Vecize('Biz muhabbet fedaileriyiz; husumete vaktimiz yoktur.', 'Şualar, On Dördüncü Şua', 'Şualar'),
-  Vecize('Hakiki saadet ve lezzet, ancak iman ve marifetullah dairesinde bulunabilir.', 'Şualar, Yedinci Şua', 'Şualar'),
-  Vecize('Sabır, üç kısımdır: Biri masiyetten kendini çekmek, ikincisi musibetlere karşı sabır, üçüncüsü ibadet üzerinde sabırdır.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Ey insan! Senin elinde bulunan nefis ve malın senin mülkün değil, belki sana emanettir.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Acz ve fakr ve şefkat ve tefekkür tarîkı, en kısa ve en selâmetli bir yoldur.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Helâl dairesi geniştir, keyfe kâfi gelir; harama girmeye hiç lüzum yoktur.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Kalb ancak zikrullah ile mutmain olur ve ruh ancak marifetullah ile huzur bulur.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Eğer hakiki sadakat ve ihlâs ve tesanüd ile hareket edilse, birimiz bin hükmüne geçer.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Cenâb-ı Hak, kemâl-i merhametinden, bu asrın yaralarına tiryak olarak Risale-i Nur’u ihsan etmiştir.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Madem hakikat böyledir; biz dahi bütün kuvvetimizle hizmet-i Kur’âniyeye sarılmalıyız.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Risale-i Nur’un dairesine sadakat ve sebat ile girenler, inşaallah imanla kabre gireceklerdir.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Kur’ân-ı Hakîmin nurlarıyla iştigal, kalbe sürur, ruha inşirah, akla nur verir.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Bu zaman cemaat zamanıdır. Ehemmiyet ve kıymet, şahs-ı manevîye göre olur.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Birbirinize karşı en büyük vazifeniz, tesanüd ve birbirinizin kusuruna bakmamaktır.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Evet, ümitvar olunuz; şu istikbal inkılâbı içinde en yüksek gür sadâ İslâmın sadâsı olacaktır.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Risale-i Nur şakirtleri, şahısların değil, doğrudan doğruya Kur’ân’ın ve imanın hizmetkârlarıdır.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Her bir mü’min kardeşimizin hasenatından bize de bir hisse geçmesi, şahs-ı manevînin sırrıdır.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Bizim vazifemiz hizmettir; neticeye karışmayız. Vazife-i İlâhiyeye müdahale edilmez.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Risale-i Nur, yalnız bir cüz’î tahribatı, bir küçük haneyi tamir etmiyor; belki İslâmiyeti içine alan muhit bir kal’ayı tamir ediyor.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Asayişi muhafaza etmek, en büyük bir vazife-i vataniye ve diniyedir; zira asayiş bozulsa, masumlar zarar görür.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Kur’ân’ın elmas gibi hakikatlerini, dünya menfaatlerine âlet etmemek lâzımdır.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Uhuvvet ve muhabbet ve tesanüdümüzü muhafaza etmek, en mühim bir esasımızdır.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Hizmet-i imaniye, hiçbir siyasete ve hiçbir tarafgirliğe âlet edilemez; her şeyin fevkindedir.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
+  Vecize(
+    metin: 'Bismillah her hayrın başıdır. Biz dahi başta ona başlarız.',
+    kaynak: 'Sözler, Birinci Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Hakikî ve elemsiz lezzet yalnız imanda ve iman ile olabilir.',
+    kaynak: 'Sözler, İkinci Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Meşru daire keyfe kâfidir; harama girmeye hiç lüzum yoktur.',
+    kaynak: 'Sözler, Altıncı Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Ey nefis! Bil ki, dünkü gün senin elinden çıktı; yarın ise senin elinde senet yok ki ona mâliksin. Öyle ise hakikî ömrünü bulunduğun gün bil.',
+    kaynak: 'Sözler, Yirmi Birinci Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Ey nefsim! Deme: "Zaman değişmiş, asır başkalaşmış, herkes dünyaya dalmış, hayata perestiş ediyor, derd-i maişetle sarhoştur." Çünkü ölüm değişmiyor.',
+    kaynak: 'Sözler, Yirmi Birinci Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Namaz, ruhun ve kalbin ve aklın en büyük bir rahatıdır; hem cisme de o kadar ağır bir iş değildir.',
+    kaynak: 'Sözler, Yirmi Birinci Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'İman hem nurdur, hem kuvvettir. Evet, hakikî imanı elde eden adam kâinata meydan okuyabilir ve imanın kuvvetine göre hâdisâtın tazyikatından kurtulabilir.',
+    kaynak: 'Sözler, Yirmi Üçüncü Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'İman insanı insan eder; belki insanı sultan eder. Öyle ise insanın vazife-i asliyesi, iman ve duadır.',
+    kaynak: 'Sözler, Yirmi Üçüncü Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Küfür insanı gayet âciz bir canavar hayvan eder.',
+    kaynak: 'Sözler, Yirmi Üçüncü Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Evet, insan nur-u iman ile âlâ-yı illiyyîne çıkar, Cennete lâyık bir kıymet alır.',
+    kaynak: 'Sözler, Yirmi Üçüncü Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Zulmet-i küfür ile esfel-i sâfilîne düşer, Cehenneme ehil olacak bir vaziyete girer.',
+    kaynak: 'Sözler, Yirmi Üçüncü Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'İnsanın bu dünyaya gönderilmesinin hikmeti ve gayesi, Hâlık-ı Kâinatı tanımak ve Ona iman edip ibadet etmektir.',
+    kaynak: 'Sözler, Yirmi Üçüncü Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Dünya bir misafirhanedir. İnsan ise onda az duracaktır ve vazifesi çok bir misafirdir.',
+    kaynak: 'Sözler, Yirmi Üçüncü Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Kur’ân, şu kitab-ı kebîr-i kâinatın bir tercüme-i ezeliyesidir.',
+    kaynak: 'Sözler, Yirmi Beşinci Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Kadere iman eden kederden emin olur.',
+    kaynak: 'Sözler, Yirmi Altıncı Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Ey insan! Senin elinde gayet zayıf, fakat seyyiatta ve tahribatta eli gayet uzun ve hasenatta eli gayet kısa cüz’-i ihtiyarî namında bir iraden var.',
+    kaynak: 'Sözler, Yirmi Altıncı Söz',
+    eser: 'Sözler',
+  ),
+  Vecize(
+    metin: 'Haksızlığı hak iddia edenlere karşı hak dâvâ etmek ve onlara müracaat etmek bir haksızlıktır, hakka karşı bir hürmetsizliktir.',
+    kaynak: 'Mektubat, On Altıncı Mektup',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Elhasıl: Dünya, madem fânidir; değmiyor alâka-i kalbe.',
+    kaynak: 'Mektubat, On Yedinci Mektup',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Muhabbet, uhuvvet, sevmek İslâmiyetin mizacıdır, rabıtasıdır.',
+    kaynak: 'Mektubat, Yirmi İkinci Mektup',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Adâvet etmek istersen, kalbindeki adâvete adâvet et; onun ref’ine çalış.',
+    kaynak: 'Mektubat, Yirmi İkinci Mektup',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Mü’min kardeşini sever ve sevmeli; fakat fenalığı için yalnız acır.',
+    kaynak: 'Mektubat, Yirmi İkinci Mektup',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Bâki hakikatler fâni şahsiyetler üzerine bina edilmez.',
+    kaynak: 'Mektubat, Yirmi Dokuzuncu Mektup',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Kardeş kardeşe peder olamaz, mürşid vaziyetini takınamaz.',
+    kaynak: 'Mektubat, Yirmi Dokuzuncu Mektup',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Güzel gören güzel düşünür. Güzel düşünen hayatından lezzet alır.',
+    kaynak: 'Mektubat, Hakikat Çekirdekleri',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'En büyük hile, hilesizliktir.',
+    kaynak: 'Mektubat, Hakikat Çekirdekleri',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Hayat bir faaliyet ve harekettir; şevk ise matiyyesidir.',
+    kaynak: 'Mektubat, Hakikat Çekirdekleri',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Ümitvar olunuz; şu istikbal inkılâbı içinde en yüksek gür sadâ İslâmın sadâsı olacaktır!',
+    kaynak: 'Mektubat, Hakikat Çekirdekleri',
+    eser: 'Mektubat',
+  ),
+  Vecize(
+    metin: 'Sünnet-i Seniyyeye ittibâ etmeyen, tembellik ederse, hasâret-i azîme; ehemmiyetsiz görürse, cinayet-i azîme; tekzibini işmam eden tenkit ise, dalâlet-i azîmedir.',
+    kaynak: 'Lem’alar, On Birinci Lem’a',
+    eser: 'Lem’alar',
+  ),
+  Vecize(
+    metin: 'Gençlik gidecek. Sefahatte gitmiş ise hem dünyada, hem kabirde, hem âhirette binler belâ ve elemler netice verdiğini ve vereceğini, binler vukuatla ve tecrübelerle ve şahitlerle sabittir.',
+    kaynak: 'Lem’alar, On Üçüncü Lem’a',
+    eser: 'Lem’alar',
+  ),
+  Vecize(
+    metin: 'Nefis, cümleden ednâ; vazife, cümleden âlâ.',
+    kaynak: 'Lem’alar, On Yedinci Lem’a',
+    eser: 'Lem’alar',
+  ),
+  Vecize(
+    metin: 'İktisat hem bir şükr-ü mânevî, hem nimetlerdeki rahmet-i İlâhiyeye karşı bir hürmet, hem kat’î bir surette sebeb-i berekettir.',
+    kaynak: 'Lem’alar, On Dokuzuncu Lem’a',
+    eser: 'Lem’alar',
+  ),
+  Vecize(
+    metin: 'İsraf ise, şükre zıt olduğu için nimetteki berekete mânidir.',
+    kaynak: 'Lem’alar, On Dokuzuncu Lem’a',
+    eser: 'Lem’alar',
+  ),
+  Vecize(
+    metin: 'Amelinizde rıza-yı İlâhî olmalı. Eğer O razı olsa, bütün dünya küsse ehemmiyeti yok.',
+    kaynak: 'Lem’alar, Yirmi Birinci Lem’a',
+    eser: 'Lem’alar',
+  ),
+  Vecize(
+    metin: 'Kardeşlerinizin meziyetlerini şahıslarınızda ve faziletlerini kendinizde tasavvur edip, onların şerefleriyle şâkirâne iftihar etmektir.',
+    kaynak: 'Lem’alar, Yirmi Birinci Lem’a',
+    eser: 'Lem’alar',
+  ),
+  Vecize(
+    metin: 'Fenâ bir adama "İyisin, iyisin" desen iyileşmesi ve iyi adama "Fenasın, fenasın" desen fenalaşması çok vuku bulur.',
+    kaynak: 'Lem’alar, Yirmi İkinci Lem’a',
+    eser: 'Lem’alar',
+  ),
+  Vecize(
+    metin: 'Ey hasta kardeş! Merak etme, sabret. Senin hastalığın sana dert değil, belki bir nevi dermandır.',
+    kaynak: 'Lem’alar, Yirmi Beşinci Lem’a',
+    eser: 'Lem’alar',
+  ),
+  Vecize(
+    metin: 'Madem O var, her şey var. Madem O yok, hiçbir şey yoktur.',
+    kaynak: 'Şualar, Dördüncü Şua',
+    eser: 'Şualar',
+  ),
+  Vecize(
+    metin: 'Evet, insan, ebed için halk olunmuş ve ebede gidecektir. Bu dünya ise onun için bir misafirhanedir ve âhiretine bir intizar salonudur.',
+    kaynak: 'Şualar, On Birinci Şua',
+    eser: 'Şualar',
+  ),
+  Vecize(
+    metin: 'Ecel gizlidir. Her vakit ölüm, başını kesmek için gelebiliyor. Genç, ihtiyar farkı yoktur.',
+    kaynak: 'Şualar, On Birinci Şua',
+    eser: 'Şualar',
+  ),
+  Vecize(
+    metin: 'Hâlıkımız kim ise, bizi en ziyade O bilir. Madem O bilir, elbette en ziyade O merhamet eder.',
+    kaynak: 'Şualar, On Birinci Şua',
+    eser: 'Şualar',
+  ),
+  Vecize(
+    metin: 'Lâ ilâhe illâllah kelâm-ı kudsîsi, kalbin bütün yaralarına merhem olduğu gibi, aklın da bütün ukdelerini halleder.',
+    kaynak: 'Mesnevî-i Nuriye, Katre',
+    eser: 'Mesnevî-i Nuriye',
+  ),
+  Vecize(
+    metin: 'Bütün eşyada, hususan zîhayatta, gayet hikmetli bir intizam ve gayet mizanlı bir san’at görünüyor.',
+    kaynak: 'Mesnevî-i Nuriye, Katre',
+    eser: 'Mesnevî-i Nuriye',
+  ),
+  Vecize(
+    metin: 'İnsan, küçük bir âlemdir; âlem ise büyük bir insandır.',
+    kaynak: 'Mesnevî-i Nuriye, Nokta',
+    eser: 'Mesnevî-i Nuriye',
+  ),
+  Vecize(
+    metin: 'Sıkıntı ve meşakkat ise, hizmetimizin kıymetini ve sevabını ziyadeleştirir.',
+    kaynak: 'Barla Lâhikası',
+    eser: 'Barla Lâhikası',
+  ),
+  Vecize(
+    metin: 'Bizim vazifemiz hizmettir; neticeye karışmayız. Çünki netice Cenâb-ı Hakka aittir.',
+    kaynak: 'Kastamonu Lâhikası',
+    eser: 'Kastamonu Lâhikası',
+  ),
+  Vecize(
+    metin: 'Risale-i Nur şakirtlerinin hasları olan hakikî kardeşlerimin en mühim bir hasletleri, birbirine karşı tesanüd ve birbirinin kusuruna bakmamaktır.',
+    kaynak: 'Kastamonu Lâhikası',
+    eser: 'Kastamonu Lâhikası',
+  ),
+  Vecize(
+    metin: 'Bizim vazifemiz, yalnız iman kurtarmaktır.',
+    kaynak: 'Emirdağ Lâhikası',
+    eser: 'Emirdağ Lâhikası',
+  ),
+  Vecize(
+    metin: 'Evet, her musibette iki cihet var: Biri rahmet ve hikmet ciheti, diğeri zahirî elem cihetidir.',
+    kaynak: 'Emirdağ Lâhikası',
+    eser: 'Emirdağ Lâhikası',
+  ),
+  Vecize(
+    metin: 'Cenâb-ı Hakkın rızası ihlâs ile kazanılır; kesret-i etbâ ile ve fazla muvaffakiyet ile değildir.',
+    kaynak: 'Kastamonu Lâhikası',
+    eser: 'Kastamonu Lâhikası',
+  ),
 ];
-// --- BİTTİ ---
+// --- VECİZELER DOSYASI BİTTİ ---

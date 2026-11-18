@@ -2,23 +2,15 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 import 'vecizeler.dart';
 import 'ekranlar.dart';
-
-final notificationsPlugin = FlutterLocalNotificationsPlugin();
+import 'bildirim.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  tz.initializeTimeZones();
-  tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
-  await notificationsPlugin.initialize(
-    settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
-  );
+  await bildirimBaslat();
   runApp(const RisaleVecizeApp());
 }
 
@@ -45,17 +37,35 @@ class AnaSayfa extends StatefulWidget {
   State<AnaSayfa> createState() => _AnaSayfaState();
 }
 
-class _AnaSayfaState extends State<AnaSayfa> {
+class _AnaSayfaState extends State<AnaSayfa> with WidgetsBindingObserver {
   int _sekme = 0, _index = 0, _periyodikDk = 60;
   String _seciliEser = 'Tümü', _aramaMetni = '';
   List<String> _saatler = ['08:30', '21:00'], _favoriler = [];
   List<Vecize> _ozelVecizeler = [];
-  bool _periyodikAktif = false;
+  bool _periyodikAktif = false, _alarmIzniVar = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _baslat();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _izinYenile();
+  }
+
+  Future<void> _izinYenile() async {
+    final ok = await alarmIzniKontrol();
+    if (mounted) setState(() => _alarmIzniVar = ok);
+    if (ok) await _planla();
   }
 
   List<Vecize> get _tumVecizeler => [..._ozelVecizeler, ...varsayilanVecizeler];
@@ -69,13 +79,19 @@ class _AnaSayfaState extends State<AnaSayfa> {
     }).toList();
   }
 
+  Future<String?> _planla() => bildirimleriPlanla(
+        havuz: _tumVecizeler,
+        saatler: _saatler,
+        periyodikAktif: _periyodikAktif,
+        periyodikDk: _periyodikDk,
+      );
+
   Future<void> _baslat() async {
-    final android = notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    await android?.requestNotificationsPermission();
-    await android?.requestExactAlarmsPermission();
+    final ok = await alarmIzniKontrol();
     final prefs = await SharedPreferences.getInstance();
     final kayitli = prefs.getStringList('ozel_vecizeler') ?? [];
     setState(() {
+      _alarmIzniVar = ok;
       _saatler = prefs.getStringList('saatler') ?? ['08:30', '21:00'];
       _favoriler = prefs.getStringList('favoriler') ?? [];
       _periyodikAktif = prefs.getBool('periyodik_aktif') ?? false;
@@ -111,65 +127,6 @@ class _AnaSayfaState extends State<AnaSayfa> {
     }
   }
 
-  NotificationDetails get _bildirimDetay => const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'risale_vecize_kanal',
-          'Risale-i Nur Vecize',
-          importance: Importance.max,
-          priority: Priority.high,
-          styleInformation: BigTextStyleInformation(''),
-        ),
-      );
-
-  Future<void> _planla() async {
-    await notificationsPlugin.cancelAll();
-    final rnd = Random();
-    final simdi = tz.TZDateTime.now(tz.local);
-    final havuz = _tumVecizeler;
-
-    for (int i = 0; i < _saatler.length; i++) {
-      final p = _saatler[i].split(':');
-      var hedef = tz.TZDateTime(tz.local, simdi.year, simdi.month, simdi.day, int.parse(p[0]), int.parse(p[1]));
-      if (hedef.isBefore(simdi)) hedef = hedef.add(const Duration(days: 1));
-      final v = havuz[rnd.nextInt(havuz.length)];
-      await notificationsPlugin.zonedSchedule(
-        id: 100 + i,
-        title: 'Risale-i Nur • ${v.kaynak}',
-        body: '“${v.metin}”',
-        scheduledDate: hedef,
-        notificationDetails: _bildirimDetay,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-      );
-    }
-
-    if (_periyodikAktif && _periyodikDk >= 1) {
-      for (int k = 1; k <= 24; k++) {
-        final hedef = simdi.add(Duration(minutes: _periyodikDk * k));
-        final v = havuz[rnd.nextInt(havuz.length)];
-        await notificationsPlugin.zonedSchedule(
-          id: 500 + k,
-          title: 'Risale-i Nur • ${v.kaynak}',
-          body: '“${v.metin}”',
-          scheduledDate: hedef,
-          notificationDetails: _bildirimDetay,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        );
-      }
-    }
-  }
-
-  Future<void> _testBildirim() async {
-    final havuz = _liste.isNotEmpty ? _liste : _tumVecizeler;
-    final v = havuz[_index % havuz.length];
-    await notificationsPlugin.show(
-      id: 999,
-      title: 'Risale-i Nur • ${v.kaynak}',
-      body: '“${v.metin}”',
-      notificationDetails: _bildirimDetay,
-    );
-  }
-
   Future<void> _saatEkle() async {
     final secilen = await showTimePicker(context: context, initialTime: TimeOfDay.now(), helpText: 'Bildirim Saatini Seçin', cancelText: 'İptal', confirmText: 'Ekle');
     if (secilen != null) {
@@ -184,6 +141,7 @@ class _AnaSayfaState extends State<AnaSayfa> {
 
   @override
   Widget build(BuildContext context) {
+    final aktifHavuz = _liste.isNotEmpty ? _liste : _tumVecizeler;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF14532D),
@@ -203,22 +161,45 @@ class _AnaSayfaState extends State<AnaSayfa> {
               },
             ),
           ),
-          IconButton(tooltip: 'Test Bildirimi', icon: const Icon(Icons.notifications_active_outlined), onPressed: _testBildirim),
+          IconButton(tooltip: 'Anlık Test', icon: const Icon(Icons.notifications_active_outlined), onPressed: () => anlikTestBildirim(aktifHavuz, _index)),
         ],
       ),
       body: _sekme == 0
           ? _vecizeEkrani()
           : _sekme == 1
               ? favorilerSayfasi(tumVecizeler: _tumVecizeler, favoriler: _favoriler, onFavoriSil: _favoriDegistir)
-              : zamanSayfasi(
-                  saatler: _saatler,
-                  periyodikAktif: _periyodikAktif,
-                  periyodikDk: _periyodikDk,
-                  onSaatEkle: _saatEkle,
-                  onSaatSil: (s) async { setState(() => _saatler.remove(s)); await _ayarKaydet(); },
-                  onPeriyodikDegistir: (val) async { setState(() => _periyodikAktif = val); await _ayarKaydet(); },
-                  onDakikaSec: (dk) async { setState(() => _periyodikDk = dk); await _ayarKaydet(); },
-                  onTestBildirim: _testBildirim,
+              : Column(
+                  children: [
+                    alarmIzinUyarisi(_alarmIzniVar),
+                    Expanded(
+                      child: zamanSayfasi(
+                        saatler: _saatler,
+                        periyodikAktif: _periyodikAktif,
+                        periyodikDk: _periyodikDk,
+                        onSaatEkle: _saatEkle,
+                        onSaatSil: (s) async { setState(() => _saatler.remove(s)); await _ayarKaydet(); },
+                        onPeriyodikDegistir: (val) async {
+                          setState(() => _periyodikAktif = val);
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('periyodik_aktif', _periyodikAktif);
+                          final ilkSaat = await _planla();
+                          if (mounted && val && ilkSaat != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Kuruldu! İlk bildirim $ilkSaat saatinde gelecek.')));
+                          }
+                        },
+                        onDakikaSec: (dk) async {
+                          setState(() => _periyodikDk = dk);
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setInt('periyodik_dakika', _periyodikDk);
+                          final ilkSaat = await _planla();
+                          if (mounted && _periyodikAktif && ilkSaat != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Güncellendi! İlk bildirim $ilkSaat saatinde gelecek.')));
+                          }
+                        },
+                        onTestBildirim: () => zamanliTestBildirim(context, aktifHavuz, _index),
+                      ),
+                    ),
+                  ],
                 ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _sekme,

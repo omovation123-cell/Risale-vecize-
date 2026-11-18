@@ -1,0 +1,63 @@
+name: APK Uret
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kodu yedekle
+        run: cp lib/main.dart /tmp/main.dart
+
+      - name: Flutter kur
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Android projesi olustur
+        run: |
+          flutter create . --platforms=android --org com.canter --project-name risale_vecize
+          flutter pub add flutter_local_notifications:18.0.1 share_plus:10.1.2 shared_preferences:2.3.3 timezone:0.9.4
+          cp /tmp/main.dart lib/main.dart
+
+      - name: Bildirim izinlerini ekle
+        run: |
+          python3 -c '
+          import os
+          m = "android/app/src/main/AndroidManifest.xml"
+          txt = open(m).read()
+          perms = """    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+              <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+              <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+          """
+          open(m, "w").write(txt.replace("<application", perms + "<application", 1))
+
+          kts = "android/app/build.gradle.kts"
+          if os.path.exists(kts):
+              g = open(kts).read()
+              g = g.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
+              g += "\ndependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")\n}\n"
+              open(kts, "w").write(g)
+          else:
+              gr = "android/app/build.gradle"
+              g = open(gr).read()
+              g = g.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true", 1)
+              g += "\ndependencies {\n    coreLibraryDesugaring \"com.android.tools:desugar_jdk_libs:2.1.4\"\n}\n"
+              open(gr, "w").write(g)
+          '
+
+      - name: APK derle
+        run: flutter build apk --release
+
+      - name: APK dosyasini hazirla
+        uses: actions/upload-artifact@v4
+        with:
+          name: Risale-Vecize-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          

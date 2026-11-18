@@ -2,62 +2,79 @@ name: APK Uret
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "ana", "main" ]
   workflow_dispatch:
 
 jobs:
   build:
+    name: olustur
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Kodu yedekle
-        run: cp lib/main.dart /tmp/main.dart
-
-      - name: Flutter kur
-        uses: subosito/flutter-action@v2
+      - uses: actions/setup-java@v4
         with:
-          channel: stable
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Android projesi olustur
-        run: |
-          flutter create . --platforms=android --org com.canter --project-name risale_vecize
-          flutter pub add flutter_local_notifications:18.0.1 share_plus:10.1.2 shared_preferences:2.3.3 timezone:0.9.4
-          cp /tmp/main.dart lib/main.dart
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
 
-      - name: Bildirim izinlerini ekle
+      - name: Projeyi hazirla
         run: |
-          python3 -c '
-          import os
-          m = "android/app/src/main/AndroidManifest.xml"
-          txt = open(m).read()
+          flutter create --org com.omovation --project-name risale_vecize app_build
+          cp lib/main.dart app_build/lib/main.dart
+          cd app_build
+          flutter pub add flutter_local_notifications share_plus shared_preferences timezone
+
+          ICON_FILE=$(find .. -maxdepth 2 -not -path "../app_build*" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) | head -n 1)
+          if [ -n "$ICON_FILE" ]; then
+            mkdir -p assets
+            EXT="${ICON_FILE##*.}"
+            cp "$ICON_FILE" "assets/icon.$EXT"
+            flutter pub add --dev flutter_launcher_icons
+            printf '\nflutter_launcher_icons:\n  android: true\n  ios: false\n  image_path: "assets/icon.%s"\n  adaptive_icon_background: "#14532D"\n  adaptive_icon_foreground: "assets/icon.%s"\n' "$EXT" "$EXT" >> pubspec.yaml
+            dart run flutter_launcher_icons
+          fi
+
+          python3 - << 'EOF'
+          import os, re
+
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r") as f:
+              m = f.read()
+
           perms = """    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
               <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
               <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+              <uses-permission android:name="android.permission.VIBRATE"/>
           """
-          open(m, "w").write(txt.replace("<application", perms + "<application", 1))
+          if "POST_NOTIFICATIONS" not in m:
+              m = m.replace("<application", perms + "    <application", 1)
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Risale-i Nur Vecize"', m, count=1)
+          with open(manifest_path, "w") as f:
+              f.write(m)
 
-          kts = "android/app/build.gradle.kts"
-          if os.path.exists(kts):
-              g = open(kts).read()
+          kts_path = "android/app/build.gradle.kts"
+          if os.path.exists(kts_path):
+              with open(kts_path, "r") as f:
+                  g = f.read()
               g = g.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
-              g += "\ndependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")\n}\n"
-              open(kts, "w").write(g)
-          else:
-              gr = "android/app/build.gradle"
-              g = open(gr).read()
-              g = g.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true", 1)
-              g += "\ndependencies {\n    coreLibraryDesugaring \"com.android.tools:desugar_jdk_libs:2.1.4\"\n}\n"
-              open(gr, "w").write(g)
-          '
+              g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+              with open(kts_path, "w") as f:
+                  f.write(g)
+          EOF
 
       - name: APK derle
+        working-directory: app_build
         run: flutter build apk --release
 
       - name: APK dosyasini hazirla
         uses: actions/upload-artifact@v4
         with:
           name: Risale-Vecize-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: app_build/build/app/outputs/flutter-apk/app-release.apk
           

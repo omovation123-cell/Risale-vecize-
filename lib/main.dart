@@ -1,75 +1,347 @@
-class Vecize {
-  final String metin, kaynak, eser;
-  const Vecize(this.metin, this.kaynak, this.eser);
+import 'dart:convert';
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'vecizeler.dart';
+import 'ekranlar.dart';
 
-  Map<String, dynamic> toMap() => {'m': metin, 'k': kaynak, 'e': eser};
+final notificationsPlugin = FlutterLocalNotificationsPlugin();
 
-  factory Vecize.fromMap(Map<String, dynamic> map) => Vecize(
-        map['m'] ?? '',
-        map['k'] ?? 'Risale-i Nur',
-        map['e'] ?? 'Sözler',
-      );
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
+  await notificationsPlugin.initialize(
+    const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+  );
+  runApp(const RisaleVecizeApp());
 }
 
-const List<String> eserListesi = [
-  'Tümü',
-  'Sözler',
-  'Mektubat',
-  'Lem’alar',
-  'Şualar',
-  'Mesnevî-i Nuriye',
-  'Barla Lâhikası',
-  'Kastamonu Lâhikası',
-  'Emirdağ Lâhikası',
-];
+class RisaleVecizeApp extends StatelessWidget {
+  const RisaleVecizeApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Risale-i Nur Vecize',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF14532D)),
+        scaffoldBackgroundColor: const Color(0xFFFDFBF7),
+      ),
+      home: const AnaSayfa(),
+    );
+  }
+}
 
-const List<Vecize> varsayilanVecizeler = [
-  Vecize('İman hem nurdur, hem kuvvettir. Evet, hakiki imanı elde eden adam, kâinata meydan okuyabilir.', 'Sözler, Yirmi Üçüncü Söz', 'Sözler'),
-  Vecize('Kadere iman eden, kederden emin olur.', 'Sözler, Yirmi Altıncı Söz', 'Sözler'),
-  Vecize('Bismillah her hayrın başıdır. Biz dahi başta ona başlarız.', 'Sözler, Birinci Söz', 'Sözler'),
-  Vecize('Dost istersen Allah yeter. Evet, o dost ise her şey dosttur.', 'Sözler, Yirmi Üçüncü Söz', 'Sözler'),
-  Vecize('Hayat bir sermayedir; sarf edilip gidiyor. Eğer meyvesi bulunmazsa zayi olur.', 'Sözler, Yirmi Dördüncü Söz', 'Sözler'),
-  Vecize('Her şeyde, hattâ en çirkin görünen şeylerde, hakiki bir hüsün ciheti vardır.', 'Sözler, On Sekizinci Söz', 'Sözler'),
-  Vecize('Ey nefis! Bil ki, dünkü gün senin elinden çıktı, yarın ise senin elinde senet yok ki ona maliksin. Öyle ise hakiki ömrünü bulunduğun gün bil.', 'Sözler, Yirmi Birinci Söz', 'Sözler'),
-  Vecize('İman insanı insan eder, belki insanı sultan eder.', 'Sözler, Yirmi Üçüncü Söz', 'Sözler'),
-  Vecize('Güzel gören güzel düşünür. Güzel düşünen hayatından lezzet alır.', 'Mektubat, Hakikat Çekirdekleri', 'Mektubat'),
-  Vecize('Bâki hakikatler fâni şahsiyetler üzerine bina edilmez.', 'Mektubat, Yirmi Dokuzuncu Mektup', 'Mektubat'),
-  Vecize('Zaman ihtiyarlandıkça Kur’ân gençleşiyor, rumuzu tavazzuh ediyor.', 'Mektubat, Yirmi Altıncı Mektup', 'Mektubat'),
-  Vecize('Hakkın hatırı âlidir, hiçbir hatıra feda edilmez.', 'Mektubat, Yirmi İkinci Mektup', 'Mektubat'),
-  Vecize('Fenalık fenalıkla def edilmez, belki iyilikle mukabele edilir.', 'Mektubat, Yirmi İkinci Mektup', 'Mektubat'),
-  Vecize('Muhabbete en lâyık şey muhabbettir ve husumete en lâyık sıfat husumettir.', 'Mektubat, Yirmi İkinci Mektup', 'Mektubat'),
-  Vecize('Şükür nimeti ziyadeleştirir, şekva musibeti ikileştirir.', 'Mektubat, Yirmi Sekizinci Mektup', 'Mektubat'),
-  Vecize('İhlâs, amelinizde rıza-yı İlâhîyi gaye edinmektir.', 'Lem’alar, Yirmi Birinci Lem’a', 'Lem’alar'),
-  Vecize('Elhasıl: Dünya madem fânidir. Hem madem ömür kısadır. Hem madem en lüzumlu vazifeler çoktur. Öyleyse ehemmiyetli vazifeleri öne almak gerektir.', 'Lem’alar, Yirmi Birinci Lem’a', 'Lem’alar'),
-  Vecize('Kardeşlerinizin nefislerini nefsinize şerefte, makamda, teveccühte, hattâ menfaat-i maddiye gibi nefsin hoşuna giden şeylerde tercih ediniz.', 'Lem’alar, Yirmi Birinci Lem’a', 'Lem’alar'),
-  Vecize('İktisat hem bir şükr-ü manevî, hem nimetlerdeki rahmet-i İlâhiyeye karşı bir hürmet, hem kat’î bir surette sebeb-i berekettir.', 'Lem’alar, On Dokuzuncu Lem’a', 'Lem’alar'),
-  Vecize('Hastalık, sabredenler için bir keffaretü’z-zünub ve bir ibadet-i kübrâdır.', 'Lem’alar, Yirmi Beşinci Lem’a', 'Lem’alar'),
-  Vecize('Tevazu, mahviyet ve terk-i enaniyet, bu zamanın en mühim bir düsturudur.', 'Lem’alar, Yirmi Birinci Lem’a', 'Lem’alar'),
-  Vecize('Kur’ân-ı Hakîmin eczaları olan Risale-i Nur, bu asrın yaralarına en tesirli bir tiryaktır.', 'Şualar, On Üçüncü Şua', 'Şualar'),
-  Vecize('İman tevhidi, tevhid teslimi, teslim tevekkülü, tevekkül saadet-i dâreyni iktiza eder.', 'Şualar, İkinci Şua', 'Şualar'),
-  Vecize('Sabır ve şükür ve tevekkül ile her musibet hafifleşir, rahmete inkılâp eder.', 'Şualar, On Birinci Şua', 'Şualar'),
-  Vecize('Biz muhabbet fedaileriyiz; husumete vaktimiz yoktur.', 'Şualar, On Dördüncü Şua', 'Şualar'),
-  Vecize('Hakiki saadet ve lezzet, ancak iman ve marifetullah dairesinde bulunabilir.', 'Şualar, Yedinci Şua', 'Şualar'),
-  Vecize('Sabır, üç kısımdır: Biri masiyetten kendini çekmek, ikincisi musibetlere karşı sabır, üçüncüsü ibadet üzerinde sabırdır.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Ey insan! Senin elinde bulunan nefis ve malın senin mülkün değil, belki sana emanettir.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Acz ve fakr ve şefkat ve tefekkür tarîkı, en kısa ve en selâmetli bir yoldur.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Helâl dairesi geniştir, keyfe kâfi gelir; harama girmeye hiç lüzum yoktur.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Kalb ancak zikrullah ile mutmain olur ve ruh ancak marifetullah ile huzur bulur.', 'Mesnevî-i Nuriye', 'Mesnevî-i Nuriye'),
-  Vecize('Eğer hakiki sadakat ve ihlâs ve tesanüd ile hareket edilse, birimiz bin hükmüne geçer.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Cenâb-ı Hak, kemâl-i merhametinden, bu asrın yaralarına tiryak olarak Risale-i Nur’u ihsan etmiştir.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Madem hakikat böyledir; biz dahi bütün kuvvetimizle hizmet-i Kur’âniyeye sarılmalıyız.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Risale-i Nur’un dairesine sadakat ve sebat ile girenler, inşaallah imanla kabre gireceklerdir.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Kur’ân-ı Hakîmin nurlarıyla iştigal, kalbe sürur, ruha inşirah, akla nur verir.', 'Barla Lâhikası', 'Barla Lâhikası'),
-  Vecize('Bu zaman cemaat zamanıdır. Ehemmiyet ve kıymet, şahs-ı manevîye göre olur.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Birbirinize karşı en büyük vazifeniz, tesanüd ve birbirinizin kusuruna bakmamaktır.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Evet, ümitvar olunuz; şu istikbal inkılâbı içinde en yüksek gür sadâ İslâmın sadâsı olacaktır.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Risale-i Nur şakirtleri, şahısların değil, doğrudan doğruya Kur’ân’ın ve imanın hizmetkârlarıdır.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Her bir mü’min kardeşimizin hasenatından bize de bir hisse geçmesi, şahs-ı manevînin sırrıdır.', 'Kastamonu Lâhikası', 'Kastamonu Lâhikası'),
-  Vecize('Bizim vazifemiz hizmettir; neticeye karışmayız. Vazife-i İlâhiyeye müdahale edilmez.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Risale-i Nur, yalnız bir cüz’î tahribatı, bir küçük haneyi tamir etmiyor; belki İslâmiyeti içine alan muhit bir kal’ayı tamir ediyor.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Asayişi muhafaza etmek, en büyük bir vazife-i vataniye ve diniyedir; zira asayiş bozulsa, masumlar zarar görür.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Kur’ân’ın elmas gibi hakikatlerini, dünya menfaatlerine âlet etmemek lâzımdır.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Uhuvvet ve muhabbet ve tesanüdümüzü muhafaza etmek, en mühim bir esasımızdır.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-  Vecize('Hizmet-i imaniye, hiçbir siyasete ve hiçbir tarafgirliğe âlet edilemez; her şeyin fevkindedir.', 'Emirdağ Lâhikası', 'Emirdağ Lâhikası'),
-];
-// --- VECİZELER SONU ---
+class AnaSayfa extends StatefulWidget {
+  const AnaSayfa({super.key});
+  @override
+  State<AnaSayfa> createState() => _AnaSayfaState();
+}
+
+class _AnaSayfaState extends State<AnaSayfa> {
+  int _sekme = 0, _index = 0, _periyodikDk = 60;
+  String _seciliEser = 'Tümü', _aramaMetni = '';
+  List<String> _saatler = ['08:30', '21:00'], _favoriler = [];
+  List<Vecize> _ozelVecizeler = [];
+  bool _periyodikAktif = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _baslat();
+  }
+
+  List<Vecize> get _tumVecizeler => [..._ozelVecizeler, ...varsayilanVecizeler];
+
+  List<Vecize> get _liste {
+    final q = _aramaMetni.trim().toLowerCase();
+    return _tumVecizeler.where((v) {
+      final eserOk = _seciliEser == 'Tümü' || v.eser == _seciliEser;
+      final aramaOk = q.isEmpty || v.metin.toLowerCase().contains(q) || v.kaynak.toLowerCase().contains(q) || v.eser.toLowerCase().contains(q);
+      return eserOk && aramaOk;
+    }).toList();
+  }
+
+  Future<void> _baslat() async {
+    final android = notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await android?.requestNotificationsPermission();
+    await android?.requestExactAlarmsPermission();
+    final prefs = await SharedPreferences.getInstance();
+    final kayitli = prefs.getStringList('ozel_vecizeler') ?? [];
+    setState(() {
+      _saatler = prefs.getStringList('saatler') ?? ['08:30', '21:00'];
+      _favoriler = prefs.getStringList('favoriler') ?? [];
+      _periyodikAktif = prefs.getBool('periyodik_aktif') ?? false;
+      _periyodikDk = prefs.getInt('periyodik_dakika') ?? 60;
+      _ozelVecizeler = kayitli.map((e) => Vecize.fromMap(jsonDecode(e) as Map<String, dynamic>)).toList();
+    });
+    await _planla();
+  }
+
+  Future<void> _ozelKaydet() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('ozel_vecizeler', _ozelVecizeler.map((v) => jsonEncode(v.toMap())).toList());
+    await _planla();
+  }
+
+  Future<void> _ayarKaydet() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('saatler', _saatler);
+    await prefs.setBool('periyodik_aktif', _periyodikAktif);
+    await prefs.setInt('periyodik_dakika', _periyodikDk);
+    await _planla();
+  }
+
+  Future<void> _favoriDegistir(String metin) async {
+    final prefs = await SharedPreferences.getInstance();
+    final eklendi = !_favoriler.contains(metin);
+    setState(() => eklendi ? _favoriler.add(metin) : _favoriler.remove(metin));
+    await prefs.setStringList('favoriler', _favoriler);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(duration: const Duration(seconds: 1), content: Text(eklendi ? 'Favorilere eklendi.' : 'Favorilerden çıkarıldı.')),
+      );
+    }
+  }
+
+  NotificationDetails get _bildirimDetay => const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'risale_vecize_kanal',
+          'Risale-i Nur Vecize',
+          importance: Importance.max,
+          priority: Priority.high,
+          styleInformation: BigTextStyleInformation(''),
+        ),
+      );
+
+  Future<void> _planla() async {
+    await notificationsPlugin.cancelAll();
+    final rnd = Random();
+    final simdi = tz.TZDateTime.now(tz.local);
+    final havuz = _tumVecizeler;
+
+    for (int i = 0; i < _saatler.length; i++) {
+      final p = _saatler[i].split(':');
+      var hedef = tz.TZDateTime(tz.local, simdi.year, simdi.month, simdi.day, int.parse(p[0]), int.parse(p[1]));
+      if (hedef.isBefore(simdi)) hedef = hedef.add(const Duration(days: 1));
+      final v = havuz[rnd.nextInt(havuz.length)];
+      await notificationsPlugin.zonedSchedule(
+        100 + i, 'Risale-i Nur • ${v.kaynak}', '“${v.metin}”', hedef, _bildirimDetay,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
+
+    if (_periyodikAktif && _periyodikDk >= 1) {
+      for (int k = 1; k <= 24; k++) {
+        final hedef = simdi.add(Duration(minutes: _periyodikDk * k));
+        final v = havuz[rnd.nextInt(havuz.length)];
+        await notificationsPlugin.zonedSchedule(
+          500 + k, 'Risale-i Nur • ${v.kaynak}', '“${v.metin}”', hedef, _bildirimDetay,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      }
+    }
+  }
+
+  Future<void> _testBildirim() async {
+    final havuz = _liste.isNotEmpty ? _liste : _tumVecizeler;
+    final v = havuz[_index % havuz.length];
+    await notificationsPlugin.show(999, 'Risale-i Nur • ${v.kaynak}', '“${v.metin}”', _bildirimDetay);
+  }
+
+  Future<void> _saatEkle() async {
+    final secilen = await showTimePicker(context: context, initialTime: TimeOfDay.now(), helpText: 'Bildirim Saatini Seçin', cancelText: 'İptal', confirmText: 'Ekle');
+    if (secilen != null) {
+      final f = '${secilen.hour.toString().padLeft(2, '0')}:${secilen.minute.toString().padLeft(2, '0')}';
+      if (!_saatler.contains(f)) {
+        setState(() { _saatler.add(f); _saatler.sort(); });
+        await _ayarKaydet();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$f saati kuruldu.')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF14532D),
+        foregroundColor: Colors.white,
+        title: Text('Risale-i Nur (${_tumVecizeler.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            tooltip: 'Vecize Ekle',
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: () => vecizeEkleGoster(
+              context: context,
+              tumVecizeler: _tumVecizeler,
+              onEkle: (yeniler) async {
+                setState(() { _ozelVecizeler.insertAll(0, yeniler); _index = 0; });
+                await _ozelKaydet();
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${yeniler.length} yeni vecize arşive eklendi.')));
+              },
+            ),
+          ),
+          IconButton(tooltip: 'Test Bildirimi', icon: const Icon(Icons.notifications_active_outlined), onPressed: _testBildirim),
+        ],
+      ),
+      body: _sekme == 0
+          ? _vecizeEkrani()
+          : _sekme == 1
+              ? favorilerSayfasi(tumVecizeler: _tumVecizeler, favoriler: _favoriler, onFavoriSil: _favoriDegistir)
+              : zamanSayfasi(
+                  saatler: _saatler,
+                  periyodikAktif: _periyodikAktif,
+                  periyodikDk: _periyodikDk,
+                  onSaatEkle: _saatEkle,
+                  onSaatSil: (s) async { setState(() => _saatler.remove(s)); await _ayarKaydet(); },
+                  onPeriyodikDegistir: (val) async { setState(() => _periyodikAktif = val); await _ayarKaydet(); },
+                  onDakikaSec: (dk) async { setState(() => _periyodikDk = dk); await _ayarKaydet(); },
+                  onTestBildirim: _testBildirim,
+                ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _sekme,
+        onDestinationSelected: (i) => setState(() => _sekme = i),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: 'Vecizeler'),
+          NavigationDestination(
+            icon: Badge(isLabelVisible: _favoriler.isNotEmpty, label: Text('${_favoriler.length}'), child: const Icon(Icons.favorite_border)),
+            selectedIcon: const Icon(Icons.favorite),
+            label: 'Favoriler',
+          ),
+          const NavigationDestination(icon: Icon(Icons.access_time_outlined), selectedIcon: Icon(Icons.access_time_filled), label: 'Saat & Dakika'),
+        ],
+      ),
+    );
+  }
+
+  Widget _vecizeEkrani() {
+    final liste = _liste;
+    final v = liste.isNotEmpty ? liste[_index % liste.length] : null;
+    final aktifSira = liste.isNotEmpty ? (_index % liste.length) + 1 : 0;
+    final favoriMi = v != null && _favoriler.contains(v.metin);
+
+    return Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          TextField(
+            onChanged: (val) => setState(() { _aramaMetni = val; _index = 0; }),
+            decoration: InputDecoration(
+              hintText: 'Vecize veya kaynak ara...',
+              prefixIcon: const Icon(Icons.search),
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: eserListesi.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final e = eserListesi[i];
+                final s = _seciliEser == e;
+                return ChoiceChip(
+                  label: Text(e),
+                  selected: s,
+                  selectedColor: const Color(0xFF14532D),
+                  labelStyle: TextStyle(color: s ? Colors.white : Colors.black87, fontWeight: FontWeight.w600),
+                  onSelected: (_) => setState(() { _seciliEser = e; _index = 0; }),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: v == null
+                ? const Center(child: Text('Aramanıza uygun vecize bulunamadı.'))
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFD97706), width: 1.2)),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('$aktifSira / ${liste.length}', style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
+                            const Icon(Icons.format_quote_rounded, size: 32, color: Color(0xFFD97706)),
+                            IconButton(
+                              onPressed: () => _favoriDegistir(v.metin),
+                              icon: Icon(favoriMi ? Icons.favorite : Icons.favorite_border, color: favoriMi ? Colors.red : Colors.black54, size: 28),
+                            ),
+                          ],
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: SingleChildScrollView(
+                              child: Text('“${v.metin}”', textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, height: 1.5, fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Chip(label: Text(v.kaynak, style: const TextStyle(color: Color(0xFF14532D), fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                  ),
+          ),
+          if (v != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                IconButton.filledTonal(onPressed: () => setState(() => _index = (_index - 1 + liste.length) % liste.length), icon: const Icon(Icons.arrow_back_ios_new, size: 18)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF14532D), padding: const EdgeInsets.symmetric(vertical: 14)),
+                    onPressed: () {
+                      if (liste.length <= 1) return;
+                      final rnd = Random();
+                      int yeni;
+                      do { yeni = rnd.nextInt(liste.length); } while (yeni == _index % liste.length);
+                      setState(() => _index = yeni);
+                    },
+                    icon: const Icon(Icons.shuffle),
+                    label: const Text('Yeni Vecize'),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton.filledTonal(onPressed: () => setState(() => _index = (_index + 1) % liste.length), icon: const Icon(Icons.arrow_forward_ios, size: 18)),
+                const SizedBox(width: 6),
+                IconButton.filledTonal(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: '“${v.metin}”\n— ${v.kaynak}'));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kopyalandı.')));
+                  },
+                  icon: const Icon(Icons.copy),
+                ),
+                const SizedBox(width: 6),
+                IconButton.filled(
+                  style: IconButton.styleFrom(backgroundColor: const Color(0xFFD97706)),
+                  onPressed: () => Share.share('“${v.metin}”\n— ${v.kaynak}'),
+                  icon: const Icon(Icons.share),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+// --- ANA DOSYA BİTTİ ---

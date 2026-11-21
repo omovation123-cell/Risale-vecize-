@@ -2,15 +2,27 @@ class Vecize {
   final String metin;
   final String kaynak;
   final String eser;
+  final String arapca;
 
-  const Vecize({required this.metin, required this.kaynak, required this.eser});
+  const Vecize({
+    required this.metin,
+    required this.kaynak,
+    required this.eser,
+    this.arapca = '',
+  });
 
-  Map<String, dynamic> toMap() => {'metin': metin, 'kaynak': kaynak, 'eser': eser};
+  Map<String, dynamic> toMap() => {
+        'metin': metin,
+        'kaynak': kaynak,
+        'eser': eser,
+        'arapca': arapca,
+      };
 
   factory Vecize.fromMap(Map<String, dynamic> map) => Vecize(
         metin: map['metin'] ?? '',
         kaynak: map['kaynak'] ?? '',
         eser: map['eser'] ?? 'Diğer',
+        arapca: map['arapca'] ?? '',
       );
 }
 
@@ -20,14 +32,23 @@ const List<String> eserListesi = [
   'Mektubat',
   'Lem’alar',
   'Şualar',
+  'İşârâtü’l-İ’câz',
   'Mesnevî-i Nuriye',
   'Barla Lâhikası',
   'Kastamonu Lâhikası',
   'Emirdağ Lâhikası',
+  'Tarihçe-i Hayat',
+  'Sikke-i Tasdik-i Gaybî',
+  'Asâ-yı Mûsâ',
+  'Muhâkemât',
+  'İman ve Küfür Muvazeneleri',
+  'Kur’an-ı Kerim',
+  'Hadis-i Şerif',
   'Diğer',
 ];
 
 const List<Vecize> varsayilanVecizeler = [
+  // 1. SÖZLER (4)
   Vecize(
     metin: 'Bismillah her hayrın başıdır. Biz dahi başta ona başlarız.',
     kaynak: 'Sözler, Birinci Söz',
@@ -39,63 +60,8 @@ const List<Vecize> varsayilanVecizeler = [
     eser: 'Sözler',
   ),
   Vecize(
-    metin: 'Meşru daire keyfe kâfidir; harama girmeye hiç lüzum yoktur.',
-    kaynak: 'Sözler, Altıncı Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'Ey nefis! Bil ki, dünkü gün senin elinden çıktı; yarın ise senin elinde senet yok ki ona mâliksin. Öyle ise hakikî ömrünü bulunduğun gün bil.',
-    kaynak: 'Sözler, Yirmi Birinci Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'Ey nefsim! Deme: "Zaman değişmiş, asır başkalaşmış, herkes dünyaya dalmış, hayata perestiş ediyor, derd-i maişetle sarhoştur." Çünkü ölüm değişmiyor.',
-    kaynak: 'Sözler, Yirmi Birinci Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'Namaz, ruhun ve kalbin ve aklın en büyük bir rahatıdır; hem cisme de o kadar ağır bir iş değildir.',
-    kaynak: 'Sözler, Yirmi Birinci Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
     metin: 'İman hem nurdur, hem kuvvettir. Evet, hakikî imanı elde eden adam kâinata meydan okuyabilir ve imanın kuvvetine göre hâdisâtın tazyikatından kurtulabilir.',
     kaynak: 'Sözler, Yirmi Üçüncü Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'İman insanı insan eder; belki insanı sultan eder. Öyle ise insanın vazife-i asliyesi, iman ve duadır.',
-    kaynak: 'Sözler, Yirmi Üçüncü Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'Küfür insanı gayet âciz bir canavar hayvan eder.',
-    kaynak: 'Sözler, Yirmi Üçüncü Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'Evet, insan nur-u iman ile âlâ-yı illiyyîne çıkar, Cennete lâyık bir kıymet alır.',
-    kaynak: 'Sözler, Yirmi Üçüncü Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'Zulmet-i küfür ile esfel-i sâfilîne düşer, Cehenneme ehil olacak bir vaziyete girer.',
-    kaynak: 'Sözler, Yirmi Üçüncü Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'İnsanın bu dünyaya gönderilmesinin hikmeti ve gayesi, Hâlık-ı Kâinatı tanımak ve Ona iman edip ibadet etmektir.',
-    kaynak: 'Sözler, Yirmi Üçüncü Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'Dünya bir misafirhanedir. İnsan ise onda az duracaktır ve vazifesi çok bir misafirdir.',
-    kaynak: 'Sözler, Yirmi Üçüncü Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'Kur’ân, şu kitab-ı kebîr-i kâinatın bir tercüme-i ezeliyesidir.',
-    kaynak: 'Sözler, Yirmi Beşinci Söz',
     eser: 'Sözler',
   ),
   Vecize(
@@ -103,16 +69,8 @@ const List<Vecize> varsayilanVecizeler = [
     kaynak: 'Sözler, Yirmi Altıncı Söz',
     eser: 'Sözler',
   ),
-  Vecize(
-    metin: 'Ey insan! Senin elinde gayet zayıf, fakat seyyiatta ve tahribatta eli gayet uzun ve hasenatta eli gayet kısa cüz’-i ihtiyarî namında bir iraden var.',
-    kaynak: 'Sözler, Yirmi Altıncı Söz',
-    eser: 'Sözler',
-  ),
-  Vecize(
-    metin: 'Haksızlığı hak iddia edenlere karşı hak dâvâ etmek ve onlara müracaat etmek bir haksızlıktır, hakka karşı bir hürmetsizliktir.',
-    kaynak: 'Mektubat, On Altıncı Mektup',
-    eser: 'Mektubat',
-  ),
+
+  // 2. MEKTUBAT (4)
   Vecize(
     metin: 'Elhasıl: Dünya, madem fânidir; değmiyor alâka-i kalbe.',
     kaynak: 'Mektubat, On Yedinci Mektup',
@@ -124,22 +82,7 @@ const List<Vecize> varsayilanVecizeler = [
     eser: 'Mektubat',
   ),
   Vecize(
-    metin: 'Adâvet etmek istersen, kalbindeki adâvete adâvet et; onun ref’ine çalış.',
-    kaynak: 'Mektubat, Yirmi İkinci Mektup',
-    eser: 'Mektubat',
-  ),
-  Vecize(
-    metin: 'Mü’min kardeşini sever ve sevmeli; fakat fenalığı için yalnız acır.',
-    kaynak: 'Mektubat, Yirmi İkinci Mektup',
-    eser: 'Mektubat',
-  ),
-  Vecize(
     metin: 'Bâki hakikatler fâni şahsiyetler üzerine bina edilmez.',
-    kaynak: 'Mektubat, Yirmi Dokuzuncu Mektup',
-    eser: 'Mektubat',
-  ),
-  Vecize(
-    metin: 'Kardeş kardeşe peder olamaz, mürşid vaziyetini takınamaz.',
     kaynak: 'Mektubat, Yirmi Dokuzuncu Mektup',
     eser: 'Mektubat',
   ),
@@ -148,31 +91,8 @@ const List<Vecize> varsayilanVecizeler = [
     kaynak: 'Mektubat, Hakikat Çekirdekleri',
     eser: 'Mektubat',
   ),
-  Vecize(
-    metin: 'En büyük hile, hilesizliktir.',
-    kaynak: 'Mektubat, Hakikat Çekirdekleri',
-    eser: 'Mektubat',
-  ),
-  Vecize(
-    metin: 'Hayat bir faaliyet ve harekettir; şevk ise matiyyesidir.',
-    kaynak: 'Mektubat, Hakikat Çekirdekleri',
-    eser: 'Mektubat',
-  ),
-  Vecize(
-    metin: 'Ümitvar olunuz; şu istikbal inkılâbı içinde en yüksek gür sadâ İslâmın sadâsı olacaktır!',
-    kaynak: 'Mektubat, Hakikat Çekirdekleri',
-    eser: 'Mektubat',
-  ),
-  Vecize(
-    metin: 'Sünnet-i Seniyyeye ittibâ etmeyen, tembellik ederse, hasâret-i azîme; ehemmiyetsiz görürse, cinayet-i azîme; tekzibini işmam eden tenkit ise, dalâlet-i azîmedir.',
-    kaynak: 'Lem’alar, On Birinci Lem’a',
-    eser: 'Lem’alar',
-  ),
-  Vecize(
-    metin: 'Gençlik gidecek. Sefahatte gitmiş ise hem dünyada, hem kabirde, hem âhirette binler belâ ve elemler netice verdiğini ve vereceğini, binler vukuatla ve tecrübelerle ve şahitlerle sabittir.',
-    kaynak: 'Lem’alar, On Üçüncü Lem’a',
-    eser: 'Lem’alar',
-  ),
+
+  // 3. LEM'ALAR (4)
   Vecize(
     metin: 'Nefis, cümleden ednâ; vazife, cümleden âlâ.',
     kaynak: 'Lem’alar, On Yedinci Lem’a',
@@ -184,23 +104,8 @@ const List<Vecize> varsayilanVecizeler = [
     eser: 'Lem’alar',
   ),
   Vecize(
-    metin: 'İsraf ise, şükre zıt olduğu için nimetteki berekete mânidir.',
-    kaynak: 'Lem’alar, On Dokuzuncu Lem’a',
-    eser: 'Lem’alar',
-  ),
-  Vecize(
     metin: 'Amelinizde rıza-yı İlâhî olmalı. Eğer O razı olsa, bütün dünya küsse ehemmiyeti yok.',
     kaynak: 'Lem’alar, Yirmi Birinci Lem’a',
-    eser: 'Lem’alar',
-  ),
-  Vecize(
-    metin: 'Kardeşlerinizin meziyetlerini şahıslarınızda ve faziletlerini kendinizde tasavvur edip, onların şerefleriyle şâkirâne iftihar etmektir.',
-    kaynak: 'Lem’alar, Yirmi Birinci Lem’a',
-    eser: 'Lem’alar',
-  ),
-  Vecize(
-    metin: 'Fenâ bir adama "İyisin, iyisin" desen iyileşmesi ve iyi adama "Fenasın, fenasın" desen fenalaşması çok vuku bulur.',
-    kaynak: 'Lem’alar, Yirmi İkinci Lem’a',
     eser: 'Lem’alar',
   ),
   Vecize(
@@ -208,6 +113,8 @@ const List<Vecize> varsayilanVecizeler = [
     kaynak: 'Lem’alar, Yirmi Beşinci Lem’a',
     eser: 'Lem’alar',
   ),
+
+  // 4. ŞUALAR (4)
   Vecize(
     metin: 'Madem O var, her şey var. Madem O yok, hiçbir şey yoktur.',
     kaynak: 'Şualar, Dördüncü Şua',
@@ -228,6 +135,30 @@ const List<Vecize> varsayilanVecizeler = [
     kaynak: 'Şualar, On Birinci Şua',
     eser: 'Şualar',
   ),
+
+  // 5. İŞÂRÂTÜ'L-İ'CÂZ (4)
+  Vecize(
+    metin: 'İbadet, fikri sâir şeylerden çevirip yalnız Hâlıka hasretmekten ibarettir.',
+    kaynak: 'İşârâtü’l-İ’câz, Bakara Sûresi 3. Âyet Tefsiri',
+    eser: 'İşârâtü’l-İ’câz',
+  ),
+  Vecize(
+    metin: 'İman, insanın fıtratında derc edilmiş bir nurdur ki, vicdanın içyüzünü ışıklandırıyor.',
+    kaynak: 'İşârâtü’l-İ’câz, Bakara Sûresi 3. Âyet Tefsiri',
+    eser: 'İşârâtü’l-İ’câz',
+  ),
+  Vecize(
+    metin: 'Saadet-i ebediyenin medarı ve üssü’l-esası, ancak ve ancak imandır.',
+    kaynak: 'İşârâtü’l-İ’câz, Bakara Sûresi 25. Âyet Tefsiri',
+    eser: 'İşârâtü’l-İ’câz',
+  ),
+  Vecize(
+    metin: 'Kur’ân-ı Kerîm’in en birinci maksadı, tevhid-i Bârîdir.',
+    kaynak: 'İşârâtü’l-İ’câz, Fâtiha Sûresi Tefsiri',
+    eser: 'İşârâtü’l-İ’câz',
+  ),
+
+  // 6. MESNEVÎ-İ NURİYE (4)
   Vecize(
     metin: 'Lâ ilâhe illâllah kelâm-ı kudsîsi, kalbin bütün yaralarına merhem olduğu gibi, aklın da bütün ukdelerini halleder.',
     kaynak: 'Mesnevî-i Nuriye, Katre',
@@ -244,10 +175,34 @@ const List<Vecize> varsayilanVecizeler = [
     eser: 'Mesnevî-i Nuriye',
   ),
   Vecize(
+    metin: 'Ey insan! Sen bir yolcusun. Şu dünya ise büyük bir misafirhanedir.',
+    kaynak: 'Mesnevî-i Nuriye, Habbe',
+    eser: 'Mesnevî-i Nuriye',
+  ),
+
+  // 7. BARLA LÂHİKASI (4)
+  Vecize(
     metin: 'Sıkıntı ve meşakkat ise, hizmetimizin kıymetini ve sevabını ziyadeleştirir.',
     kaynak: 'Barla Lâhikası',
     eser: 'Barla Lâhikası',
   ),
+  Vecize(
+    metin: 'Risale-i Nur’un hakikî şakirtleri, neşr-i envar-ı Kur’âniyeye kendilerini vakfetmişlerdir.',
+    kaynak: 'Barla Lâhikası',
+    eser: 'Barla Lâhikası',
+  ),
+  Vecize(
+    metin: 'Kur’ân-ı Hakîmin hakikatleri güneş gibidir; üflemekle sönmez.',
+    kaynak: 'Barla Lâhikası',
+    eser: 'Barla Lâhikası',
+  ),
+  Vecize(
+    metin: 'İhlâs ve hakikat yolunda çalışanlara inâyet-i İlâhiye her vakit yetişir.',
+    kaynak: 'Barla Lâhikası',
+    eser: 'Barla Lâhikası',
+  ),
+
+  // 8. KASTAMONU LÂHİKASI (4)
   Vecize(
     metin: 'Bizim vazifemiz hizmettir; neticeye karışmayız. Çünki netice Cenâb-ı Hakka aittir.',
     kaynak: 'Kastamonu Lâhikası',
@@ -259,6 +214,18 @@ const List<Vecize> varsayilanVecizeler = [
     eser: 'Kastamonu Lâhikası',
   ),
   Vecize(
+    metin: 'Cenâb-ı Hakkın rızası ihlâs ile kazanılır; kesret-i etbâ ile ve fazla muvaffakiyet ile değildir.',
+    kaynak: 'Kastamonu Lâhikası',
+    eser: 'Kastamonu Lâhikası',
+  ),
+  Vecize(
+    metin: 'Bir adamın imanını kurtarmak, sahra dolusu kırmızı koyunlardan daha hayırlıdır.',
+    kaynak: 'Kastamonu Lâhikası',
+    eser: 'Kastamonu Lâhikası',
+  ),
+
+  // 9. EMİRDAĞ LÂHİKASI (4)
+  Vecize(
     metin: 'Bizim vazifemiz, yalnız iman kurtarmaktır.',
     kaynak: 'Emirdağ Lâhikası',
     eser: 'Emirdağ Lâhikası',
@@ -269,9 +236,172 @@ const List<Vecize> varsayilanVecizeler = [
     eser: 'Emirdağ Lâhikası',
   ),
   Vecize(
-    metin: 'Cenâb-ı Hakkın rızası ihlâs ile kazanılır; kesret-i etbâ ile ve fazla muvaffakiyet ile değildir.',
-    kaynak: 'Kastamonu Lâhikası',
-    eser: 'Kastamonu Lâhikası',
+    metin: 'Risale-i Nur, Kur’ân’ın malıdır ve Kur’ân’dan süzülmüştür.',
+    kaynak: 'Emirdağ Lâhikası',
+    eser: 'Emirdağ Lâhikası',
+  ),
+  Vecize(
+    metin: 'Hakikî teselli ve hakikî sürur, ancak iman ve Kur’ân dairesindedir.',
+    kaynak: 'Emirdağ Lâhikası',
+    eser: 'Emirdağ Lâhikası',
+  ),
+
+  // 10. TARİHÇE-İ HAYAT (4)
+  Vecize(
+    metin: 'Ben ekmeksiz yaşarım, hürriyetsiz yaşayamam.',
+    kaynak: 'Tarihçe-i Hayat, İlk Hayatı',
+    eser: 'Tarihçe-i Hayat',
+  ),
+  Vecize(
+    metin: 'İman hem nurdur, hem kuvvettir. Hakikî imanı elde eden adam kâinata meydan okuyabilir.',
+    kaynak: 'Tarihçe-i Hayat, Eski Said Dönemi',
+    eser: 'Tarihçe-i Hayat',
+  ),
+  Vecize(
+    metin: 'Kur’ân’ın sönmez ve söndürülmez mânevî bir güneş olduğunu ben dünyaya ispat edeceğim ve göstereceğim.',
+    kaynak: 'Tarihçe-i Hayat, İlk Hayatı',
+    eser: 'Tarihçe-i Hayat',
+  ),
+  Vecize(
+    metin: 'Bütün ömrümde hak ve hakikatten başka hiçbir şeye baş eğmedim.',
+    kaynak: 'Tarihçe-i Hayat',
+    eser: 'Tarihçe-i Hayat',
+  ),
+
+  // 11. SİKKE-İ TASDİK-İ GAYBÎ (4)
+  Vecize(
+    metin: 'Risale-i Nur, bu asrın fehmine bir ders-i Kur’ânîdir.',
+    kaynak: 'Sikke-i Tasdik-i Gaybî',
+    eser: 'Sikke-i Tasdik-i Gaybî',
+  ),
+  Vecize(
+    metin: 'İnâyet-i İlâhiye, hizmet-i Kur’âniyede çalışanları muhafaza eder ve muvaffak kılar.',
+    kaynak: 'Sikke-i Tasdik-i Gaybî',
+    eser: 'Sikke-i Tasdik-i Gaybî',
+  ),
+  Vecize(
+    metin: 'Kur’ân’ın i’câz-ı mânevîsi, her asırda kendini göstermektedir.',
+    kaynak: 'Sikke-i Tasdik-i Gaybî',
+    eser: 'Sikke-i Tasdik-i Gaybî',
+  ),
+  Vecize(
+    metin: 'Hizmet-i imaniye, en büyük ve en kudsî bir vazifedir.',
+    kaynak: 'Sikke-i Tasdik-i Gaybî',
+    eser: 'Sikke-i Tasdik-i Gaybî',
+  ),
+
+  // 12. ASÂ-YI MÛSÂ (4)
+  Vecize(
+    metin: 'Ey insan! Sen kendini kendi kendine mâlik sayma. Çünki sen kendini idare edemezsin, o yük ağırdır.',
+    kaynak: 'Asâ-yı Mûsâ, Birinci Kısım, İkinci Hüccet-i İmâniye',
+    eser: 'Asâ-yı Mûsâ',
+  ),
+  Vecize(
+    metin: 'Her bir zîhayat, Sâni-i Zülcelâlin bir kaside-i san’atıdır.',
+    kaynak: 'Asâ-yı Mûsâ, İkinci Kısım, Birinci Mesele',
+    eser: 'Asâ-yı Mûsâ',
+  ),
+  Vecize(
+    metin: 'Dünya hayatı fânidir; bâki bir hayat ise bizi bekliyor.',
+    kaynak: 'Asâ-yı Mûsâ, Birinci Kısım, Birinci Mesele',
+    eser: 'Asâ-yı Mûsâ',
+  ),
+  Vecize(
+    metin: 'İman, insanı hayvanlıktan çıkarıp hakikî insanlık mertebesine yükseltir.',
+    kaynak: 'Asâ-yı Mûsâ, Birinci Kısım, Dördüncü Mesele',
+    eser: 'Asâ-yı Mûsâ',
+  ),
+
+  // 13. MUHÂKEMÂT (4)
+  Vecize(
+    metin: 'Güzel gören güzel düşünür. Güzel düşünen hayatından lezzet alır.',
+    kaynak: 'Muhâkemât, Birinci Makale',
+    eser: 'Muhâkemât',
+  ),
+  Vecize(
+    metin: 'Hakikatin hatırı, her hatırdan âlîdir.',
+    kaynak: 'Muhâkemât, Birinci Makale',
+    eser: 'Muhâkemât',
+  ),
+  Vecize(
+    metin: 'Zaman ihtiyarlandıkça Kur’ân gençleşiyor, rumuzu tavazzuh ediyor.',
+    kaynak: 'Muhâkemât, Birinci Makale',
+    eser: 'Muhâkemât',
+  ),
+  Vecize(
+    metin: 'Delil ve burhan üzerine müesses olan İslâmiyet, akıl ve hikmete muvafıktır.',
+    kaynak: 'Muhâkemât, Birinci Makale',
+    eser: 'Muhâkemât',
+  ),
+
+  // 14. İMAN VE KÜFÜR MUVAZENELERİ (4)
+  Vecize(
+    metin: 'İman tevhidi, tevhid teslimi, teslim tevekkülü, tevekkül saadet-i dâreyni iktiza eder.',
+    kaynak: 'İman ve Küfür Muvazeneleri',
+    eser: 'İman ve Küfür Muvazeneleri',
+  ),
+  Vecize(
+    metin: 'İman insanı insan eder; belki insanı sultan eder.',
+    kaynak: 'İman ve Küfür Muvazeneleri',
+    eser: 'İman ve Küfür Muvazeneleri',
+  ),
+  Vecize(
+    metin: 'Küfür insanı gayet âciz bir canavar hayvan eder.',
+    kaynak: 'İman ve Küfür Muvazeneleri',
+    eser: 'İman ve Küfür Muvazeneleri',
+  ),
+  Vecize(
+    metin: 'İman şems-i ezelîden bir nurdur; küfür ise zulmettir.',
+    kaynak: 'İman ve Küfür Muvazeneleri',
+    eser: 'İman ve Küfür Muvazeneleri',
+  ),
+
+  // 15. KUR'AN-I KERİM (4)
+  Vecize(
+    arapca: 'لَا يُكَلِّفُ اللّٰهُ نَفْسًا اِلَّا وُسْعَهَاۜ',
+    metin: 'Allah, bir kimseyi ancak gücünün yettiği şeyle yükümlü kılar.',
+    kaynak: 'Kur’an-ı Kerim, Bakara Sûresi, 286. Âyet',
+    eser: 'Kur’an-ı Kerim',
+  ),
+  Vecize(
+    arapca: 'فَاِنَّ مَعَ الْعُسْرِ يُسْرًاۙ اِنَّ مَعَ الْعُسْرِ يُسْرًاۜ',
+    metin: 'Şüphesiz güçlükle beraber bir kolaylık vardır. Gerçekten, güçlükle beraber bir kolaylık vardır.',
+    kaynak: 'Kur’an-ı Kerim, İnşirâh Sûresi, 5-6. Âyetler',
+    eser: 'Kur’an-ı Kerim',
+  ),
+  Vecize(
+    arapca: 'اَلَا بِذِكْرِ اللّٰهِ تَطْمَئِنُّ الْقُلُوبُۜ',
+    metin: 'Bilesiniz ki, kalpler ancak Allah’ı anmakla huzur bulur.',
+    kaynak: 'Kur’an-ı Kerim, Ra’d Sûresi, 28. Âyet',
+    eser: 'Kur’an-ı Kerim',
+  ),
+  Vecize(
+    arapca: 'وَمَنْ يَتَوَكَّلْ عَلَى اللّٰهِ فَهُوَ حَسْبُهُۜ',
+    metin: 'Kim Allah’a tevekkül ederse, O kendisine yeter.',
+    kaynak: 'Kur’an-ı Kerim, Talâk Sûresi, 3. Âyet',
+    eser: 'Kur’an-ı Kerim',
+  ),
+
+  // 16. HADİS-İ ŞERİF (4)
+  Vecize(
+    metin: 'Ameller niyetlere göredir. Herkese ancak niyet ettiği şey vardır.',
+    kaynak: 'Hadis-i Şerif, Buhârî, Bed’ü’l-Vahy, 1',
+    eser: 'Hadis-i Şerif',
+  ),
+  Vecize(
+    metin: 'Kolaylaştırınız, zorlaştırmayınız; müjdeleyiniz, nefret ettirmeyiniz.',
+    kaynak: 'Hadis-i Şerif, Buhârî, İlim, 11',
+    eser: 'Hadis-i Şerif',
+  ),
+  Vecize(
+    metin: 'İnsanların en hayırlısı, insanlara faydalı olanıdır.',
+    kaynak: 'Hadis-i Şerif, Taberânî, el-Mu’cemü’l-Evsat, 5787',
+    eser: 'Hadis-i Şerif',
+  ),
+  Vecize(
+    metin: 'Mü’minin durumu ne hoştur! Her hâli kendisi için hayırlıdır.',
+    kaynak: 'Hadis-i Şerif, Müslim, Zühd, 64',
+    eser: 'Hadis-i Şerif',
   ),
 ];
 // --- VECİZELER DOSYASI BİTTİ ---

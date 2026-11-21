@@ -105,6 +105,8 @@ jobs:
       - name: Android Izinleri ve Alarm Ayarlari
         run: |
           python3 - << 'EOF'
+          import os
+
           path = "android/app/src/main/AndroidManifest.xml"
           with open(path, "r") as f:
               xml = f.read()
@@ -137,6 +139,49 @@ jobs:
 
           with open(path, "w") as f:
               f.write(xml)
+
+          root_kts = "android/build.gradle.kts"
+          if os.path.exists(root_kts):
+              with open(root_kts, "r") as f:
+                  content = f.read()
+              jvm_fix = """
+          subprojects {
+              val ayarla: Project.() -> Unit = {
+                  extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.apply {
+                      compileOptions {
+                          sourceCompatibility = JavaVersion.VERSION_17
+                          targetCompatibility = JavaVersion.VERSION_17
+                      }
+                  }
+                  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+                      kotlinOptions {
+                          jvmTarget = "17"
+                      }
+                  }
+              }
+              if (state.executed) {
+                  ayarla()
+              } else {
+                  afterEvaluate { ayarla() }
+              }
+          }
+          """
+              with open(root_kts, "w") as f:
+                  f.write(content + "\n" + jvm_fix)
+
+          app_kts = "android/app/build.gradle.kts"
+          if os.path.exists(app_kts):
+              with open(app_kts, "r") as f:
+                  app_content = f.read()
+              if "isCoreLibraryDesugaringEnabled" not in app_content:
+                  app_content = app_content.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
+                      1
+                  )
+                  app_content += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")\n}\n'
+                  with open(app_kts, "w") as f:
+                      f.write(app_content)
           EOF
 
       - name: APK Derle

@@ -146,23 +146,14 @@ jobs:
                   content = f.read()
               jvm_fix = """
           subprojects {
-              val ayarla: Project.() -> Unit = {
-                  extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.apply {
-                      compileOptions {
-                          sourceCompatibility = JavaVersion.VERSION_17
-                          targetCompatibility = JavaVersion.VERSION_17
-                      }
-                  }
-                  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
-                      kotlinOptions {
-                          jvmTarget = "17"
-                      }
-                  }
+              tasks.withType<JavaCompile>().configureEach {
+                  sourceCompatibility = "17"
+                  targetCompatibility = "17"
               }
-              if (state.executed) {
-                  ayarla()
-              } else {
-                  afterEvaluate { ayarla() }
+              tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
+                  compilerOptions {
+                      jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                  }
               }
           }
           """
@@ -179,7 +170,7 @@ jobs:
                       "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
                       1
                   )
-                  app_content += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")\n}\n'
+                  app_content += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
                   with open(app_kts, "w") as f:
                       f.write(app_content)
           EOF

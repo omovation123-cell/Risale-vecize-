@@ -22,10 +22,12 @@ jobs:
 
       - name: Projeyi ve Fontlari Hazirla
         run: |
+          mkdir -p /tmp/lib_yedek
+          cp -r lib/* /tmp/lib_yedek/
           flutter create --org com.omovation --project-name risale_vecize .
           rm -rf lib/*
-          cp -r kütüphane/* lib/
-          mv lib/ana.dart lib/main.dart
+          cp -r /tmp/lib_yedek/* lib/
+          if [ -f lib/ana.dart ]; then mv lib/ana.dart lib/main.dart; fi
 
           mkdir -p assets/fonts
           curl -sL "https://github.com/google/fonts/raw/main/ofl/amiri/Amiri-Regular.ttf" -o assets/fonts/Amiri-Regular.ttf
@@ -88,9 +90,7 @@ jobs:
               wav.setframerate(sample_rate)
               for i in range(num_samples):
                   t = i / sample_rate
-                  # Yumusak nefes acilisi ve uzun yankili kapanis
                   env = math.sin(math.pi * min(t / 0.55, 1.0)) if t < 0.55 else math.exp(-(t - 0.55) * 1.65)
-                  # Derin Ney / Hu harmonik frekanslari (Re / D3 = 146.83 Hz)
                   f0 = 146.83 * (1.0 + 0.004 * math.sin(2 * math.pi * 4.2 * t))
                   s = (
                       0.55 * math.sin(2 * math.pi * f0 * t) +

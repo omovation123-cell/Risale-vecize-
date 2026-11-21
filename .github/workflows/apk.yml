@@ -140,28 +140,18 @@ jobs:
           with open(path, "w") as f:
               f.write(xml)
 
-          gradle_props = "android/gradle.properties"
-          if os.path.exists(gradle_props):
-              with open(gradle_props, "r") as f:
-                  props = f.read()
-              if "kotlin.jvm.target.validation.mode" not in props:
-                  with open(gradle_props, "w") as f:
-                      f.write(props + "\nkotlin.jvm.target.validation.mode=warning\n")
-
           root_kts = "android/build.gradle.kts"
           if os.path.exists(root_kts):
               with open(root_kts, "r") as f:
                   content = f.read()
               jvm_fix = """
-          gradle.projectsEvaluated {
-              subprojects {
-                  tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
-                      sourceCompatibility = "17"
-                      targetCompatibility = "17"
-                  }
-                  tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
-                      compilerOptions {
-                          jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+          subprojects {
+              if (name == "flutter_timezone") {
+                  afterEvaluate {
+                      tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
+                          compilerOptions {
+                              jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+                          }
                       }
                   }
               }

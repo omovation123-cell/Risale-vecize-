@@ -1,13 +1,15 @@
-name: APK Olustur
+name: APK Uret
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "ana", "main", "master" ]
   workflow_dispatch:
 
 jobs:
   build:
+    name: olustur
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -20,14 +22,23 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Projeyi ve Fontlari Hazirla
+      - name: Projeyi ve Ikonu Hazirla
         run: |
-          mkdir -p /tmp/lib_yedek
-          cp -r lib/* /tmp/lib_yedek/
-          flutter create --org com.omovation --project-name risale_vecize .
-          rm -rf lib/*
-          cp -r /tmp/lib_yedek/* lib/
-          if [ -f lib/ana.dart ]; then mv lib/ana.dart lib/main.dart; fi
+          flutter create --org com.omovation --project-name risale_vecize app_build
+          cp lib/*.dart app_build/lib/
+          if [ -f app_build/lib/ana.dart ]; then mv app_build/lib/ana.dart app_build/lib/main.dart; fi
+          cd app_build
+          flutter pub add flutter_local_notifications share_plus shared_preferences timezone path_provider
+
+          ICON_FILE=$(find .. -maxdepth 2 -not -path "../app_build*" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) | head -n 1)
+          if [ -n "$ICON_FILE" ]; then
+            mkdir -p assets
+            EXT="${ICON_FILE##*.}"
+            cp "$ICON_FILE" "assets/icon.$EXT"
+            flutter pub add --dev flutter_launcher_icons
+            printf '\nflutter_launcher_icons:\n  android: true\n  ios: false\n  image_path: "assets/icon.%s"\n  adaptive_icon_background: "#14532D"\n  adaptive_icon_foreground: "assets/icon.%s"\n' "$EXT" "$EXT" >> pubspec.yaml
+            dart run flutter_launcher_icons
+          fi
 
           mkdir -p assets/fonts
           curl -sL "https://github.com/google/fonts/raw/main/ofl/amiri/Amiri-Regular.ttf" -o assets/fonts/Amiri-Regular.ttf
@@ -35,31 +46,13 @@ jobs:
           curl -sL "https://github.com/google/fonts/raw/main/ofl/lora/Lora%5Bwght%5D.ttf" -o assets/fonts/Lora.ttf
           curl -sL "https://github.com/google/fonts/raw/main/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf" -o assets/fonts/Playfair.ttf
 
-          cat << 'EOF' > pubspec.yaml
-          name: risale_vecize
-          description: Risale-i Nur Vecize Uygulamasi
-          publish_to: 'none'
-          version: 2.0.0+2
+          python3 - << 'EOF'
+          import os, re
 
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
+          with open("pubspec.yaml", "r") as f:
+              pub = f.read()
 
-          dependencies:
-            flutter:
-              sdk: flutter
-            flutter_local_notifications: ^17.2.2
-            timezone: ^0.9.4
-            flutter_timezone: ^3.0.1
-            shared_preferences: ^2.3.2
-            share_plus: ^10.0.2
-            path_provider: ^2.1.4
-
-          dev_dependencies:
-            flutter_test:
-              sdk: flutter
-
-          flutter:
-            uses-material-design: true
+          fonts_block = """uses-material-design: true
             fonts:
               - family: MushafFont
                 fonts:
@@ -71,118 +64,61 @@ jobs:
                   - asset: assets/fonts/Lora.ttf
               - family: HatBaslik
                 fonts:
-                  - asset: assets/fonts/Playfair.ttf
-          EOF
+                  - asset: assets/fonts/Playfair.ttf"""
 
-      - name: Hu Bildirim Sesi Olustur
-        run: |
-          mkdir -p android/app/src/main/res/raw
-          python3 - << 'EOF'
-          import wave, struct, math, random
+          if "MushafFont" not in pub:
+              pub = pub.replace("uses-material-design: true", fonts_block, 1)
+              with open("pubspec.yaml", "w") as f:
+                  f.write(pub)
 
-          sample_rate = 44100
-          duration = 2.6
-          num_samples = int(sample_rate * duration)
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r") as f:
+              m = f.read()
 
-          with wave.open('android/app/src/main/res/raw/hu_sesi.wav', 'w') as wav:
-              wav.setnchannels(1)
-              wav.setsampwidth(2)
-              wav.setframerate(sample_rate)
-              for i in range(num_samples):
-                  t = i / sample_rate
-                  env = math.sin(math.pi * min(t / 0.55, 1.0)) if t < 0.55 else math.exp(-(t - 0.55) * 1.65)
-                  f0 = 146.83 * (1.0 + 0.004 * math.sin(2 * math.pi * 4.2 * t))
-                  s = (
-                      0.55 * math.sin(2 * math.pi * f0 * t) +
-                      0.25 * math.sin(2 * math.pi * f0 * 2 * t) +
-                      0.10 * math.sin(2 * math.pi * f0 * 3 * t) +
-                      0.03 * (random.random() * 2 - 1) * math.exp(-t * 2.5)
-                  )
-                  val = int(max(-32767, min(32767, s * env * 24000)))
-                  wav.writeframes(struct.pack('<h', val))
-          EOF
-
-      - name: Android Izinleri ve Alarm Ayarlari
-        run: |
-          python3 - << 'EOF'
-          import os
-
-          path = "android/app/src/main/AndroidManifest.xml"
-          with open(path, "r") as f:
-              xml = f.read()
-
-          perms = """
-              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+          perms = """    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
               <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
               <uses-permission android:name="android.permission.WAKE_LOCK"/>
               <uses-permission android:name="android.permission.VIBRATE"/>
           """
-          if "SCHEDULE_EXACT_ALARM" not in xml:
-              xml = xml.replace("<application", perms + "\n    <application", 1)
-
-          receivers = """
-                  <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
+          receivers = """        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
                   <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
                   <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
                       <intent-filter>
                           <action android:name="android.intent.action.BOOT_COMPLETED"/>
                           <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-                          <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                          <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
                           <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
                       </intent-filter>
                   </receiver>
           """
-          if "ScheduledNotificationReceiver" not in xml:
-              xml = xml.replace("</application>", receivers + "\n    </application>", 1)
+          if "POST_NOTIFICATIONS" not in m:
+              m = m.replace("<application", perms + "    <application", 1)
+          if "ScheduledNotificationReceiver" not in m:
+              m = m.replace("</application>", receivers + "    </application>", 1)
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Risale-i Nur Vecize"', m, count=1)
+          with open(manifest_path, "w") as f:
+              f.write(m)
 
-          with open(path, "w") as f:
-              f.write(xml)
-
-          root_kts = "android/build.gradle.kts"
-          if os.path.exists(root_kts):
-              with open(root_kts, "r") as f:
-                  content = f.read()
-              jvm_fix = """
-          subprojects {
-              if (name == "flutter_timezone") {
-                  afterEvaluate {
-                      tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
-                          compilerOptions {
-                              jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-                          }
-                      }
-                  }
-              }
-          }
-          """
-              with open(root_kts, "w") as f:
-                  f.write(content + "\n" + jvm_fix)
-
-          app_kts = "android/app/build.gradle.kts"
-          if os.path.exists(app_kts):
-              with open(app_kts, "r") as f:
-                  app_content = f.read()
-              if "isCoreLibraryDesugaringEnabled" not in app_content:
-                  app_content = app_content.replace(
-                      "compileOptions {",
-                      "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
-                      1
-                  )
-                  app_content += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
-                  with open(app_kts, "w") as f:
-                      f.write(app_content)
+          kts_path = "android/app/build.gradle.kts"
+          if os.path.exists(kts_path):
+              with open(kts_path, "r") as f:
+                  g = f.read()
+              if "isCoreLibraryDesugaringEnabled" not in g:
+                  g = g.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
+                  g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+                  with open(kts_path, "w") as f:
+                      f.write(g)
           EOF
 
-      - name: APK Derle
-        run: |
-          flutter pub get
-          flutter build apk --release
+      - name: APK derle
+        working-directory: app_build
+        run: flutter build apk --release
 
-      - name: APK Dosyasini Hazirla
+      - name: APK dosyasini hazirla
         uses: actions/upload-artifact@v4
         with:
-          name: Risale-i-Nur-Vecize-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: Risale-Vecize-APK
+          path: app_build/build/app/outputs/flutter-apk/app-release.apk
 # --- APK YML BİTTİ ---

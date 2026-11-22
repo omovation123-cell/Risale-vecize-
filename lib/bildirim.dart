@@ -7,6 +7,7 @@ import 'vecizeler.dart';
 
 final FlutterLocalNotificationsPlugin _bildirim = FlutterLocalNotificationsPlugin();
 bool _tzHazir = false;
+List<Vecize> _sonHavuz = [];
 
 void _zamanDilimiHazirla() {
   if (_tzHazir) return;
@@ -18,8 +19,8 @@ void _zamanDilimiHazirla() {
 }
 
 Future<void> bildirimBaslat({
-  Function(String metin, String kaynak)? onFavori,
-  Function(String metin, String kaynak, String eser)? onPaylas,
+  Function(Vecize v)? onBildirimPaylas,
+  Function(String metin)? onBildirimFavori,
 }) async {
   _zamanDilimiHazirla();
   const androidAyar = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -30,46 +31,108 @@ Future<void> bildirimBaslat({
     onDidReceiveNotificationResponse: (NotificationResponse res) {
       final payload = res.payload ?? '';
       if (payload.isEmpty) return;
-      final parcalar = payload.split('|||');
-      final metin = parcalar.isNotEmpty ? parcalar[0] : '';
-      final kaynak = parcalar.length > 1 ? parcalar[1] : '';
-      final eser = parcalar.length > 2 ? parcalar[2] : 'Risale-i Nur';
 
-      if (res.actionId == 'fav_btn' && onFavori != null && metin.isNotEmpty) {
-        onFavori(metin, kaynak);
-      } else if (res.actionId == 'share_btn' && onPaylas != null && metin.isNotEmpty) {
-        onPaylas(metin, kaynak, eser);
+      if (res.actionId == 'fav_btn' && onBildirimFavori != null) {
+        onBildirimFavori(payload);
+      } else if (res.actionId == 'share_btn' && onBildirimPaylas != null) {
+        final eslesen = _sonHavuz.where((e) => e.metin == payload).toList();
+        if (eslesen.isNotEmpty) {
+          onBildirimPaylas(eslesen.first);
+        }
       }
     },
   );
 
-  await izinleriIste();
+  await alarmIzniKontrol();
 }
 
-Future<void> izinleriIste() async {
-  if (!Platform.isAndroid) return;
-  final android = _bildirim.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-  if (android == null) return;
-  await android.requestNotificationsPermission();
-  final alarmOk = await android.canScheduleExactNotifications() ?? true;
-  if (!alarmOk) {
-    await android.requestExactAlarmsPermission();
-  }
-}
-
-Future<bool> izinleriKontrolEt() async {
+Future<bool> alarmIzniKontrol() async {
   if (!Platform.isAndroid) return true;
   final android = _bildirim.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
   if (android == null) return true;
+
+  await android.requestNotificationsPermission();
   final bildirimOk = await android.areNotificationsEnabled() ?? true;
+
   final alarmOk = await android.canScheduleExactNotifications() ?? true;
-  return bildirimOk && alarmOk;
+  if (!alarmOk) {
+    try {
+      await android.requestExactAlarmsPermission();
+    } catch (_) {}
+  }
+
+  return bildirimOk;
+}
+
+Widget alarmIzinUyarisi(bool izinVar) {
+  if (izinVar) return const SizedBox.shrink();
+  return Container(
+    width: double.infinity,
+    margin: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.amber.shade100,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: Colors.amber.shade800, width: 1.2),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.notifications_off_outlined, color: Colors.amber.shade900),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Bildirim izni kapalı görünüyor. Zamanlı vecizelerin gelmesi için izin verin.',
+            style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.w600, fontSize: 12.5),
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.amber.shade900,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          onPressed: () => alarmIzniKontrol(),
+          child: const Text('İzin Ver', style: TextStyle(fontSize: 12)),
+        ),
+      ],
+    ),
+  );
+}
+
+List<Vecize> adilKitapTuruHavuzu(List<Vecize> kaynakListe, {bool karistir = true}) {
+  if (kaynakListe.isEmpty) return [];
+  final gruplar = <String, List<Vecize>>{};
+  for (final v in kaynakListe) {
+    gruplar.putIfAbsent(v.eser, () => []).add(v);
+  }
+  final kitaplar = gruplar.keys.toList();
+  if (karistir) {
+    kitaplar.shuffle();
+    for (final k in kitaplar) {
+      gruplar[k]!.shuffle();
+    }
+  }
+  final sonuc = <Vecize>[];
+  int tur = 0;
+  bool eklendi = true;
+  while (eklendi) {
+    eklendi = false;
+    for (final k in kitaplar) {
+      final liste = gruplar[k]!;
+      if (tur < liste.length) {
+        sonuc.add(liste[tur]);
+        eklendi = true;
+      }
+    }
+    tur++;
+  }
+  return sonuc;
 }
 
 NotificationDetails _bildirimDetayi(Vecize v) {
   final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
   final androidDetay = AndroidNotificationDetails(
-    'risale_vecize_kanali',
+    'risale_vecize_klasik',
     'Risale-i Nur Vecizeleri',
     channelDescription: 'Günlük ve periyodik vecize bildirimleri',
     importance: Importance.max,
@@ -83,7 +146,6 @@ NotificationDetails _bildirimDetayi(Vecize v) {
       summaryText: v.eser,
     ),
     actions: const <AndroidNotificationAction>[
-      AndroidNotificationAction('fav_btn', 'Favoriye Ekle', showsUserInterface: true),
       AndroidNotificationAction('share_btn', 'Paylaş', showsUserInterface: true),
     ],
   );
@@ -92,7 +154,8 @@ NotificationDetails _bildirimDetayi(Vecize v) {
 
 Future<void> anlikTestBildirim(List<Vecize> vecizeler, int index, {bool huSesi = false}) async {
   if (vecizeler.isEmpty) return;
-  await izinleriIste();
+  if (_sonHavuz.isEmpty) _sonHavuz = List<Vecize>.from(vecizeler);
+  await alarmIzniKontrol();
   final v = vecizeler[index % vecizeler.length];
   final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
   await _bildirim.show(
@@ -100,14 +163,15 @@ Future<void> anlikTestBildirim(List<Vecize> vecizeler, int index, {bool huSesi =
     v.kaynak,
     icerik,
     _bildirimDetayi(v),
-    payload: '${v.metin}|||${v.kaynak}|||${v.eser}',
+    payload: v.metin,
   );
 }
 
 Future<void> zamanliTestBildirim(BuildContext context, List<Vecize> vecizeler, int index, {bool huSesi = false}) async {
   if (vecizeler.isEmpty) return;
+  if (_sonHavuz.isEmpty) _sonHavuz = List<Vecize>.from(vecizeler);
   _zamanDilimiHazirla();
-  await izinleriIste();
+  await alarmIzniKontrol();
   final v = vecizeler[(index + 1) % vecizeler.length];
   final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
   final hedef = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 10));
@@ -121,7 +185,7 @@ Future<void> zamanliTestBildirim(BuildContext context, List<Vecize> vecizeler, i
       _bildirimDetayi(v),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      payload: '${v.metin}|||${v.kaynak}|||${v.eser}',
+      payload: v.metin,
     );
   } catch (_) {
     await _bildirim.zonedSchedule(
@@ -132,7 +196,7 @@ Future<void> zamanliTestBildirim(BuildContext context, List<Vecize> vecizeler, i
       _bildirimDetayi(v),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      payload: '${v.metin}|||${v.kaynak}|||${v.eser}',
+      payload: v.metin,
     );
   }
 
@@ -144,7 +208,7 @@ Future<void> zamanliTestBildirim(BuildContext context, List<Vecize> vecizeler, i
 }
 
 Future<String?> bildirimleriPlanla({
-  required List<Vecize> vecizeler,
+  required List<Vecize> havuz,
   required List<String> saatler,
   required bool periyodikAktif,
   required int periyodikDk,
@@ -152,8 +216,9 @@ Future<String?> bildirimleriPlanla({
   bool huSesi = false,
 }) async {
   _zamanDilimiHazirla();
+  _sonHavuz = List<Vecize>.from(havuz);
   await _bildirim.cancelAll();
-  if (vecizeler.isEmpty) return null;
+  if (havuz.isEmpty) return null;
 
   final simdi = tz.TZDateTime.now(tz.local);
   tz.TZDateTime? enYakin;
@@ -171,7 +236,7 @@ Future<String?> bildirimleriPlanla({
       hedef = hedef.add(const Duration(days: 1));
     }
 
-    final v = vecizeler[vIdx % vecizeler.length];
+    final v = havuz[vIdx % havuz.length];
     vIdx++;
     final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
 
@@ -185,7 +250,7 @@ Future<String?> bildirimleriPlanla({
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time,
-        payload: '${v.metin}|||${v.kaynak}|||${v.eser}',
+        payload: v.metin,
       );
     } catch (_) {
       await _bildirim.zonedSchedule(
@@ -197,7 +262,7 @@ Future<String?> bildirimleriPlanla({
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time,
-        payload: '${v.metin}|||${v.kaynak}|||${v.eser}',
+        payload: v.metin,
       );
     }
 
@@ -211,7 +276,7 @@ Future<String?> bildirimleriPlanla({
     final adet = (1440 / periyodikDk).ceil().clamp(1, 48);
     for (int i = 1; i <= adet; i++) {
       final hedef = simdi.add(Duration(minutes: periyodikDk * i));
-      final v = vecizeler[vIdx % vecizeler.length];
+      final v = havuz[vIdx % havuz.length];
       vIdx++;
       final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
 
@@ -224,7 +289,7 @@ Future<String?> bildirimleriPlanla({
           _bildirimDetayi(v),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-          payload: '${v.metin}|||${v.kaynak}|||${v.eser}',
+          payload: v.metin,
         );
       } catch (_) {
         await _bildirim.zonedSchedule(
@@ -235,7 +300,7 @@ Future<String?> bildirimleriPlanla({
           _bildirimDetayi(v),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-          payload: '${v.metin}|||${v.kaynak}|||${v.eser}',
+          payload: v.metin,
         );
       }
 

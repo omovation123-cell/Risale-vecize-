@@ -28,7 +28,7 @@ jobs:
           cp lib/*.dart app_build/lib/
           if [ -f app_build/lib/ana.dart ]; then mv app_build/lib/ana.dart app_build/lib/main.dart; fi
           cd app_build
-          flutter pub add flutter_local_notifications share_plus shared_preferences timezone path_provider
+          flutter pub add "flutter_local_notifications:^18.0.1" "share_plus:^10.0.2" "shared_preferences:^2.3.2" "timezone:^0.9.4" "path_provider:^2.1.4"
 
           ICON_FILE=$(find .. -maxdepth 2 -not -path "../app_build*" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) | head -n 1)
           if [ -n "$ICON_FILE" ]; then
@@ -105,12 +105,11 @@ jobs:
           if os.path.exists(kts_path):
               with open(kts_path, "r") as f:
                   g = f.read()
-              g = re.sub(r'compileSdk\s*=\s*[^\n]+', 'compileSdk = 37', g, count=1)
               if "isCoreLibraryDesugaringEnabled" not in g:
                   g = g.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
                   g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
-              with open(kts_path, "w") as f:
-                  f.write(g)
+                  with open(kts_path, "w") as f:
+                      f.write(g)
           EOF
 
       - name: APK derle
@@ -123,4 +122,3 @@ jobs:
           name: Risale-Vecize-APK
           path: app_build/build/app/outputs/flutter-apk/app-release.apk
 # --- APK YML BİTTİ ---
-

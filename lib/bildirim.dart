@@ -60,8 +60,9 @@ Future<bool> alarmIzniKontrol() async {
       await android.requestExactAlarmsPermission();
     } catch (_) {}
   }
+  final sonAlarmOk = await android.canScheduleExactNotifications() ?? true;
 
-  return bildirimOk;
+  return bildirimOk && sonAlarmOk;
 }
 
 Widget alarmIzinUyarisi(bool izinVar) {
@@ -81,7 +82,7 @@ Widget alarmIzinUyarisi(bool izinVar) {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            'Bildirim izni kapalı görünüyor. Zamanlı vecizelerin gelmesi için izin verin.',
+            'Bildirim veya tam zamanlı alarm izni kapalı. Vaktinde bildirim için izin verin.',
             style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.w600, fontSize: 12.5),
           ),
         ),
@@ -212,7 +213,7 @@ Future<String?> bildirimleriPlanla({
   required List<String> saatler,
   required bool periyodikAktif,
   required int periyodikDk,
-  required int baslangicIndex,
+  int baslangicIndex = 0,
   bool huSesi = false,
 }) async {
   _zamanDilimiHazirla();

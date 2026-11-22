@@ -47,7 +47,32 @@ jobs:
           curl -sL "https://github.com/google/fonts/raw/main/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf" -o assets/fonts/Playfair.ttf
 
           python3 - << 'EOF'
-          import os, re
+          import os, re, zlib, struct
+
+          os.makedirs("android/app/src/main/res/drawable", exist_ok=True)
+          w, h = 48, 48
+          rows = []
+          for y in range(h):
+              row = bytearray([0])
+              for x in range(w):
+                  in_outer = (8 <= x <= 39) and (10 <= y <= 37)
+                  in_inner = (11 <= x <= 36) and (13 <= y <= 34)
+                  is_spine = (23 <= x <= 24) and (11 <= y <= 36)
+                  is_line = ((14 <= x <= 20) or (27 <= x <= 33)) and (y in (18, 23, 28))
+                  if (in_outer and not in_inner) or is_spine or is_line:
+                      row.extend([255, 255, 255, 255])
+                  else:
+                      row.extend([255, 255, 255, 0])
+              rows.append(bytes(row))
+
+          raw_data = b"".join(rows)
+          def png_chunk(tag, data):
+              return struct.pack("!I", len(data)) + tag + data + struct.pack("!I", zlib.crc32(tag + data) & 0xffffffff)
+
+          ihdr = struct.pack("!IIBBBBB", w, h, 8, 6, 0, 0, 0)
+          png = b"\x89PNG\r\n\x1a\n" + png_chunk(b"IHDR", ihdr) + png_chunk(b"IDAT", zlib.compress(raw_data)) + png_chunk(b"IEND", b"")
+          with open("android/app/src/main/res/drawable/ic_bildirim.png", "wb") as f:
+              f.write(png)
 
           with open("pubspec.yaml", "r") as f:
               pub = f.read()
@@ -82,9 +107,9 @@ jobs:
               <uses-permission android:name="android.permission.WAKE_LOCK"/>
               <uses-permission android:name="android.permission.VIBRATE"/>
           """
-          receivers = """        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
-                  <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-                  <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+          receivers = """        <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
+                  <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+                  <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
                       <intent-filter>
                           <action android:name="android.intent.action.BOOT_COMPLETED"/>
                           <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
@@ -101,15 +126,24 @@ jobs:
           with open(manifest_path, "w") as f:
               f.write(m)
 
+          with open("android/app/proguard-rules.pro", "w") as f:
+              f.write("-keep class com.dexterous.** { *; }\n-keepattributes Signature\n-keepattributes *Annotation*\n")
+
           kts_path = "android/app/build.gradle.kts"
           if os.path.exists(kts_path):
               with open(kts_path, "r") as f:
                   g = f.read()
               if "isCoreLibraryDesugaringEnabled" not in g:
                   g = g.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
-                  g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
-                  with open(kts_path, "w") as f:
-                      f.write(g)
+              if "isMinifyEnabled" not in g:
+                  g = g.replace(
+                      "signingConfig = signingConfigs.getByName(\"debug\")",
+                      "signingConfig = signingConfigs.getByName(\"debug\")\n            isMinifyEnabled = false\n            isShrinkResources = false",
+                      1
+                  )
+              g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+              with open(kts_path, "w") as f:
+                  f.write(g)
           EOF
 
       - name: APK derle

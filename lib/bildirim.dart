@@ -7,23 +7,34 @@ import 'vecizeler.dart';
 
 final FlutterLocalNotificationsPlugin _bildirim = FlutterLocalNotificationsPlugin();
 bool _tzHazir = false;
+bool _motorHazir = false;
 List<Vecize> _sonHavuz = [];
+Function(Vecize v)? _paylasCallback;
+Function(String metin)? _favoriCallback;
+
+const AndroidNotificationChannel _vecizeKanali = AndroidNotificationChannel(
+  'risale_vecize_alarm_v6',
+  'Risale-i Nur Vecizeleri',
+  description: 'Günlük ve periyodik vecize bildirimleri',
+  importance: Importance.max,
+  playSound: true,
+  enableVibration: true,
+);
 
 void _zamanDilimiHazirla() {
   if (_tzHazir) return;
-  tz.initializeTimeZones();
   try {
+    tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
   } catch (_) {}
   _tzHazir = true;
 }
 
-Future<void> bildirimBaslat({
-  Function(Vecize v)? onBildirimPaylas,
-  Function(String metin)? onBildirimFavori,
-}) async {
+Future<void> _motoruHazirla() async {
   _zamanDilimiHazirla();
-  const androidAyar = AndroidInitializationSettings('@mipmap/ic_launcher');
+  if (_motorHazir) return;
+
+  const androidAyar = AndroidInitializationSettings('@drawable/ic_bildirim');
   const ayarlar = InitializationSettings(android: androidAyar);
 
   await _bildirim.initialize(
@@ -32,37 +43,63 @@ Future<void> bildirimBaslat({
       final payload = res.payload ?? '';
       if (payload.isEmpty) return;
 
-      if (res.actionId == 'fav_btn' && onBildirimFavori != null) {
-        onBildirimFavori(payload);
-      } else if (res.actionId == 'share_btn' && onBildirimPaylas != null) {
+      if (res.actionId == 'fav_btn' && _favoriCallback != null) {
+        _favoriCallback!(payload);
+      } else if (res.actionId == 'share_btn' && _paylasCallback != null) {
         final eslesen = _sonHavuz.where((e) => e.metin == payload).toList();
         if (eslesen.isNotEmpty) {
-          onBildirimPaylas(eslesen.first);
+          _paylasCallback!(eslesen.first);
         }
       }
     },
   );
 
-  await alarmIzniKontrol();
+  final android = _bildirim.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  if (android != null) {
+    await android.createNotificationChannel(_vecizeKanali);
+  }
+
+  _motorHazir = true;
+}
+
+Future<void> bildirimBaslat({
+  Function(Vecize v)? onBildirimPaylas,
+  Function(String metin)? onBildirimFavori,
+}) async {
+  _paylasCallback = onBildirimPaylas;
+  _favoriCallback = onBildirimFavori;
+  try {
+    await _motoruHazirla();
+  } catch (_) {}
 }
 
 Future<bool> alarmIzniKontrol() async {
   if (!Platform.isAndroid) return true;
-  final android = _bildirim.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-  if (android == null) return true;
+  try {
+    await _motoruHazirla();
+    final android = _bildirim.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (android == null) return true;
 
-  await android.requestNotificationsPermission();
-  final bildirimOk = await android.areNotificationsEnabled() ?? true;
-
-  final alarmOk = await android.canScheduleExactNotifications() ?? true;
-  if (!alarmOk) {
+    bool bildirimOk = true;
     try {
-      await android.requestExactAlarmsPermission();
+      bildirimOk = await android.areNotificationsEnabled() ?? true;
+      if (!bildirimOk) {
+        await android.requestNotificationsPermission();
+        bildirimOk = await android.areNotificationsEnabled() ?? true;
+      }
     } catch (_) {}
-  }
-  final sonAlarmOk = await android.canScheduleExactNotifications() ?? true;
 
-  return bildirimOk && sonAlarmOk;
+    try {
+      final alarmOk = await android.canScheduleExactNotifications() ?? true;
+      if (!alarmOk) {
+        await android.requestExactAlarmsPermission();
+      }
+    } catch (_) {}
+
+    return bildirimOk;
+  } catch (_) {
+    return true;
+  }
 }
 
 Widget alarmIzinUyarisi(bool izinVar) {
@@ -82,7 +119,7 @@ Widget alarmIzinUyarisi(bool izinVar) {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            'Bildirim veya tam zamanlı alarm izni kapalı. Vaktinde bildirim için izin verin.',
+            'Bildirim izni kapalı görünüyor. Vaktinde vecize gelmesi için izin verin.',
             style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.w600, fontSize: 12.5),
           ),
         ),
@@ -133,78 +170,114 @@ List<Vecize> adilKitapTuruHavuzu(List<Vecize> kaynakListe, {bool karistir = true
 NotificationDetails _bildirimDetayi(Vecize v) {
   final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
   final androidDetay = AndroidNotificationDetails(
-    'risale_vecize_klasik',
-    'Risale-i Nur Vecizeleri',
-    channelDescription: 'Günlük ve periyodik vecize bildirimleri',
+    _vecizeKanali.id,
+    _vecizeKanali.name,
+    channelDescription: _vecizeKanali.description,
+    icon: '@drawable/ic_bildirim',
     importance: Importance.max,
-    priority: Priority.high,
+    priority: Priority.max,
     playSound: true,
     enableVibration: true,
+    visibility: NotificationVisibility.public,
     subText: v.eser,
     styleInformation: BigTextStyleInformation(
       icerik,
       contentTitle: v.kaynak,
       summaryText: v.eser,
     ),
-    actions: const <AndroidNotificationAction>[
-      AndroidNotificationAction('share_btn', 'Paylaş', showsUserInterface: true),
-    ],
   );
   return NotificationDetails(android: androidDetay);
 }
 
+Future<void> _miuiAlarmKur({
+  required int id,
+  required Vecize v,
+  required tz.TZDateTime hedef,
+  bool gunlukTekrar = false,
+}) async {
+  final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
+  final detay = _bildirimDetayi(v);
+  final tekrar = gunlukTekrar ? DateTimeComponents.time : null;
+
+  try {
+    await _bildirim.zonedSchedule(
+      id,
+      v.kaynak,
+      icerik,
+      hedef,
+      detay,
+      androidScheduleMode: AndroidScheduleMode.alarmClock,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: tekrar,
+      payload: v.metin,
+    );
+  } catch (_) {
+    try {
+      await _bildirim.zonedSchedule(
+        id,
+        v.kaynak,
+        icerik,
+        hedef,
+        detay,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: tekrar,
+        payload: v.metin,
+      );
+    } catch (_) {
+      await _bildirim.zonedSchedule(
+        id,
+        v.kaynak,
+        icerik,
+        hedef,
+        detay,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: tekrar,
+        payload: v.metin,
+      );
+    }
+  }
+}
+
 Future<void> anlikTestBildirim(List<Vecize> vecizeler, int index, {bool huSesi = false}) async {
   if (vecizeler.isEmpty) return;
-  if (_sonHavuz.isEmpty) _sonHavuz = List<Vecize>.from(vecizeler);
-  await alarmIzniKontrol();
-  final v = vecizeler[index % vecizeler.length];
-  final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
-  await _bildirim.show(
-    99901,
-    v.kaynak,
-    icerik,
-    _bildirimDetayi(v),
-    payload: v.metin,
-  );
+  try {
+    await _motoruHazirla();
+    if (_sonHavuz.isEmpty) _sonHavuz = List<Vecize>.from(vecizeler);
+    final v = vecizeler[index % vecizeler.length];
+    final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
+    await _bildirim.show(
+      99901,
+      v.kaynak,
+      icerik,
+      _bildirimDetayi(v),
+      payload: v.metin,
+    );
+  } catch (_) {}
 }
 
 Future<void> zamanliTestBildirim(BuildContext context, List<Vecize> vecizeler, int index, {bool huSesi = false}) async {
   if (vecizeler.isEmpty) return;
-  if (_sonHavuz.isEmpty) _sonHavuz = List<Vecize>.from(vecizeler);
-  _zamanDilimiHazirla();
-  await alarmIzniKontrol();
-  final v = vecizeler[(index + 1) % vecizeler.length];
-  final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
-  final hedef = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 10));
-
   try {
-    await _bildirim.zonedSchedule(
-      99902,
-      v.kaynak,
-      icerik,
-      hedef,
-      _bildirimDetayi(v),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      payload: v.metin,
-    );
-  } catch (_) {
-    await _bildirim.zonedSchedule(
-      99902,
-      v.kaynak,
-      icerik,
-      hedef,
-      _bildirimDetayi(v),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      payload: v.metin,
-    );
-  }
+    await _motoruHazirla();
+    if (_sonHavuz.isEmpty) _sonHavuz = List<Vecize>.from(vecizeler);
+    final v = vecizeler[(index + 1) % vecizeler.length];
+    final hedef = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 10));
 
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Test kuruldu! Ekranı kilitleyin, 10 saniye içinde bildirim gelecek.')),
-    );
+    await _miuiAlarmKur(id: 99902, v: v, hedef: hedef);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Test kuruldu! Ekranı kilitleyin, 10 saniye içinde bildirim gelecek.')),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bildirim hatası: $e')),
+      );
+    }
   }
 }
 
@@ -216,7 +289,7 @@ Future<String?> bildirimleriPlanla({
   int baslangicIndex = 0,
   bool huSesi = false,
 }) async {
-  _zamanDilimiHazirla();
+  await _motoruHazirla();
   _sonHavuz = List<Vecize>.from(havuz);
   await _bildirim.cancelAll();
   if (havuz.isEmpty) return null;
@@ -239,33 +312,8 @@ Future<String?> bildirimleriPlanla({
 
     final v = havuz[vIdx % havuz.length];
     vIdx++;
-    final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
 
-    try {
-      await _bildirim.zonedSchedule(
-        idSayac,
-        v.kaynak,
-        icerik,
-        hedef,
-        _bildirimDetayi(v),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-        payload: v.metin,
-      );
-    } catch (_) {
-      await _bildirim.zonedSchedule(
-        idSayac,
-        v.kaynak,
-        icerik,
-        hedef,
-        _bildirimDetayi(v),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-        payload: v.metin,
-      );
-    }
+    await _miuiAlarmKur(id: idSayac, v: v, hedef: hedef, gunlukTekrar: true);
 
     idSayac++;
     if (enYakin == null || hedef.isBefore(enYakin)) {
@@ -279,31 +327,8 @@ Future<String?> bildirimleriPlanla({
       final hedef = simdi.add(Duration(minutes: periyodikDk * i));
       final v = havuz[vIdx % havuz.length];
       vIdx++;
-      final icerik = v.arapca.isNotEmpty ? '${v.arapca}\n\n“${v.metin}”' : '“${v.metin}”';
 
-      try {
-        await _bildirim.zonedSchedule(
-          idSayac,
-          v.kaynak,
-          icerik,
-          hedef,
-          _bildirimDetayi(v),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-          payload: v.metin,
-        );
-      } catch (_) {
-        await _bildirim.zonedSchedule(
-          idSayac,
-          v.kaynak,
-          icerik,
-          hedef,
-          _bildirimDetayi(v),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-          payload: v.metin,
-        );
-      }
+      await _miuiAlarmKur(id: idSayac, v: v, hedef: hedef);
 
       idSayac++;
       if (enYakin == null || hedef.isBefore(enYakin)) {

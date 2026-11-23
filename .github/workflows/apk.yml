@@ -28,7 +28,7 @@ jobs:
           cp lib/*.dart app_build/lib/
           if [ -f app_build/lib/ana.dart ]; then mv app_build/lib/ana.dart app_build/lib/main.dart; fi
           cd app_build
-          flutter pub add "flutter_local_notifications:^18.0.1" "share_plus" "shared_preferences" "timezone:^0.9.4" "path_provider" "file_picker" "archive"
+          flutter pub add "flutter_local_notifications:^18.0.1" "share_plus" "shared_preferences" "timezone:^0.9.4" "path_provider" "file_picker:>=8.1.0 <11.0.0" "archive"
 
           ICON_FILE=$(find .. -maxdepth 2 -not -path "../app_build*" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) | head -n 1)
           if [ -n "$ICON_FILE" ]; then

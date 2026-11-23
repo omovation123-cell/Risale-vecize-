@@ -28,7 +28,7 @@ jobs:
           cp lib/*.dart app_build/lib/
           if [ -f app_build/lib/ana.dart ]; then mv app_build/lib/ana.dart app_build/lib/main.dart; fi
           cd app_build
-          flutter pub add "flutter_local_notifications:^18.0.1" "share_plus:^10.0.2" "shared_preferences:^2.3.2" "timezone:^0.9.4" "path_provider:^2.1.4" "file_picker:^8.1.2" "archive:^3.6.1"
+          flutter pub add "flutter_local_notifications:^18.0.1" "share_plus" "shared_preferences" "timezone:^0.9.4" "path_provider" "file_picker" "archive"
 
           ICON_FILE=$(find .. -maxdepth 2 -not -path "../app_build*" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) | head -n 1)
           if [ -n "$ICON_FILE" ]; then
@@ -49,7 +49,7 @@ jobs:
           python3 - << 'EOF'
           import os, re, zlib, struct, hashlib, base64, subprocess
 
-          # 1. Sabit SPRZ CANTER dijital imza anahtari uretimi (her derlemede ayni parmak izi)
+          # 1. Sabit SPRZ CANTER dijital imza anahtari uretimi
           def det_bytes(seed_str, length):
               out = bytearray()
               counter = 0
@@ -200,8 +200,8 @@ jobs:
               <uses-permission android:name="android.permission.WAKE_LOCK"/>
               <uses-permission android:name="android.permission.VIBRATE"/>
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-              <uses-permission android:name="android/permission/WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
-          """.replace("android/permission/WRITE_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE")
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
+          """
 
           receivers = """        <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
                   <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
@@ -225,11 +225,42 @@ jobs:
           with open("android/app/proguard-rules.pro", "w") as f:
               f.write("-keep class com.dexterous.** { *; }\n-keepattributes Signature\n-keepattributes *Annotation*\n")
 
-          # 5. build.gradle.kts SPRZ CANTER imzasi ve desugaring
+          # 5. Tum eklentileri (file_picker dahil) Android 36 ile derlemeye zorla
+          root_kts = "android/build.gradle.kts"
+          if os.path.exists(root_kts):
+              with open(root_kts, "r") as f:
+                  rk = f.read()
+              sdk_fix = """subprojects {
+              afterEvaluate {
+                  if (plugins.hasPlugin("com.android.library")) {
+                      extensions.findByName("android")?.let { ext ->
+                          try {
+                              val m = ext.javaClass.getMethod("setCompileSdkVersion", Int::class.javaPrimitiveType)
+                              m.invoke(ext, 36)
+                          } catch (_: Exception) {}
+                      }
+                  }
+              }
+          }
+          subprojects {
+              project.evaluationDependsOn(":app")
+          }"""
+              if 'project.evaluationDependsOn(":app")' in rk:
+                  rk = re.sub(
+                      r'subprojects\s*\{\s*project\.evaluationDependsOn\(":app"\)\s*\}',
+                      sdk_fix,
+                      rk,
+                      count=1
+                  )
+              with open(root_kts, "w") as f:
+                  f.write(rk)
+
+          # 6. build.gradle.kts compileSdk 36, SPRZ CANTER imzasi ve desugaring
           kts_path = "android/app/build.gradle.kts"
           if os.path.exists(kts_path):
               with open(kts_path, "r") as f:
                   g = f.read()
+              g = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk = 36', g, count=1)
               if "isCoreLibraryDesugaringEnabled" not in g:
                   g = g.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
               sign_block = """signingConfigs {
@@ -243,10 +274,11 @@ jobs:
               buildTypes {"""
               if "sprzCanter" not in g:
                   g = g.replace("buildTypes {", sign_block, 1)
-                  g = g.replace(
-                      'signingConfig = signingConfigs.getByName("debug")',
+                  g = re.sub(
+                      r'signingConfig\s*=\s*signingConfigs\.getByName\(["\']debug["\']\)',
                       'signingConfig = signingConfigs.getByName("sprzCanter")\n            isMinifyEnabled = false\n            isShrinkResources = false',
-                      1
+                      g,
+                      count=1
                   )
               g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
               with open(kts_path, "w") as f:

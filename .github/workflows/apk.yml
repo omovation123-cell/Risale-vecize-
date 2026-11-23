@@ -28,7 +28,7 @@ jobs:
           cp lib/*.dart app_build/lib/
           if [ -f app_build/lib/ana.dart ]; then mv app_build/lib/ana.dart app_build/lib/main.dart; fi
           cd app_build
-          flutter pub add "flutter_local_notifications:^18.0.1" "share_plus:^10.0.2" "shared_preferences:^2.3.2" "timezone:^0.9.4" "path_provider:^2.1.4"
+          flutter pub add "flutter_local_notifications:^18.0.1" "share_plus:^10.0.2" "shared_preferences:^2.3.2" "timezone:^0.9.4" "path_provider:^2.1.4" "file_picker:^8.1.2" "archive:^3.6.1"
 
           ICON_FILE=$(find .. -maxdepth 2 -not -path "../app_build*" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) | head -n 1)
           if [ -n "$ICON_FILE" ]; then
@@ -47,8 +47,99 @@ jobs:
           curl -sL "https://github.com/google/fonts/raw/main/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf" -o assets/fonts/Playfair.ttf
 
           python3 - << 'EOF'
-          import os, re, zlib, struct
+          import os, re, zlib, struct, hashlib, base64, subprocess
 
+          # 1. Sabit SPRZ CANTER dijital imza anahtari uretimi (her derlemede ayni parmak izi)
+          def det_bytes(seed_str, length):
+              out = bytearray()
+              counter = 0
+              while len(out) < length:
+                  out.extend(hashlib.sha256(f"{seed_str}:{counter}".encode()).digest())
+                  counter += 1
+              return bytes(out[:length])
+
+          def is_prime(n):
+              if n < 2:
+                  return False
+              for p in (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37):
+                  if n % p == 0:
+                      return n == p
+              d, s = n - 1, 0
+              while d % 2 == 0:
+                  d //= 2
+                  s += 1
+              for a in (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37):
+                  x = pow(a, d, n)
+                  if x == 1 or x == n - 1:
+                      continue
+                  for _ in range(s - 1):
+                      x = pow(x, 2, n)
+                      if x == n - 1:
+                          break
+                  else:
+                      return False
+              return True
+
+          def next_prime(start):
+              cand = start | 1
+              while not is_prime(cand) or (cand - 1) % 65537 == 0:
+                  cand += 2
+              return cand
+
+          p_seed = int.from_bytes(det_bytes("SPRZ_CANTER_P_2026", 128), "big") | (1 << 1023) | (1 << 1022)
+          q_seed = int.from_bytes(det_bytes("SPRZ_CANTER_Q_2026", 128), "big") | (1 << 1023) | (1 << 1022)
+          p = next_prime(p_seed)
+          q = next_prime(q_seed)
+          if p < q:
+              p, q = q, p
+          n = p * q
+          e = 65537
+          phi = (p - 1) * (q - 1)
+          d = pow(e, -1, phi)
+          dp = d % (p - 1)
+          dq = d % (q - 1)
+          qinv = pow(q, -1, p)
+
+          def der_len(l):
+              if l < 0x80:
+                  return bytes([l])
+              b = l.to_bytes((l.bit_length() + 7) // 8, "big")
+              return bytes([0x80 | len(b)]) + b
+
+          def der_int(v):
+              b = v.to_bytes((v.bit_length() + 8) // 8, "big") if v > 0 else b"\x00"
+              return b"\x02" + der_len(len(b)) + b
+
+          body = b"".join(der_int(x) for x in (0, n, e, d, p, q, dp, dq, qinv))
+          der = b"\x30" + der_len(len(body)) + body
+          b64 = base64.b64encode(der).decode()
+          pem = "-----BEGIN RSA PRIVATE KEY-----\n" + "\n".join(b64[i:i+64] for i in range(0, len(b64), 64)) + "\n-----END RSA PRIVATE KEY-----\n"
+
+          with open("android/app/sprz_canter.key", "w") as f:
+              f.write(pem)
+
+          subprocess.run([
+              "openssl", "req", "-new", "-x509",
+              "-key", "android/app/sprz_canter.key",
+              "-out", "android/app/sprz_canter.crt",
+              "-days", "36500",
+              "-set_serial", "20261123",
+              "-subj", "/CN=SPRZ CANTER/OU=SPRZ CANTER/O=SPRZ CANTER/L=Van/C=TR"
+          ], check=True)
+
+          subprocess.run([
+              "openssl", "pkcs12", "-export",
+              "-in", "android/app/sprz_canter.crt",
+              "-inkey", "android/app/sprz_canter.key",
+              "-out", "android/app/sprz_canter.p12",
+              "-name", "sprz_canter",
+              "-passout", "pass:sprzcanter2026"
+          ], check=True)
+
+          os.remove("android/app/sprz_canter.key")
+          os.remove("android/app/sprz_canter.crt")
+
+          # 2. MIUI uyumlu beyaz kitap bildirim ikonu
           os.makedirs("android/app/src/main/res/drawable", exist_ok=True)
           w, h = 48, 48
           rows = []
@@ -74,6 +165,7 @@ jobs:
           with open("android/app/src/main/res/drawable/ic_bildirim.png", "wb") as f:
               f.write(png)
 
+          # 3. Fontlar
           with open("pubspec.yaml", "r") as f:
               pub = f.read()
 
@@ -96,6 +188,7 @@ jobs:
               with open("pubspec.yaml", "w") as f:
                   f.write(pub)
 
+          # 4. AndroidManifest izin ve alicilar
           manifest_path = "android/app/src/main/AndroidManifest.xml"
           with open(manifest_path, "r") as f:
               m = f.read()
@@ -106,7 +199,10 @@ jobs:
               <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
               <uses-permission android:name="android.permission.WAKE_LOCK"/>
               <uses-permission android:name="android.permission.VIBRATE"/>
-          """
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android/permission/WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
+          """.replace("android/permission/WRITE_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE")
+
           receivers = """        <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
                   <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
                   <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
@@ -122,23 +218,34 @@ jobs:
               m = m.replace("<application", perms + "    <application", 1)
           if "ScheduledNotificationReceiver" not in m:
               m = m.replace("</application>", receivers + "    </application>", 1)
-          m = re.sub(r'android:label="[^"]*"', 'android:label="Risale-i Nur Vecize"', m, count=1)
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Nurdan Vecizeler"', m, count=1)
           with open(manifest_path, "w") as f:
               f.write(m)
 
           with open("android/app/proguard-rules.pro", "w") as f:
               f.write("-keep class com.dexterous.** { *; }\n-keepattributes Signature\n-keepattributes *Annotation*\n")
 
+          # 5. build.gradle.kts SPRZ CANTER imzasi ve desugaring
           kts_path = "android/app/build.gradle.kts"
           if os.path.exists(kts_path):
               with open(kts_path, "r") as f:
                   g = f.read()
               if "isCoreLibraryDesugaringEnabled" not in g:
                   g = g.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
-              if "isMinifyEnabled" not in g:
+              sign_block = """signingConfigs {
+                  create("sprzCanter") {
+                      storeFile = file("sprz_canter.p12")
+                      storePassword = "sprzcanter2026"
+                      keyAlias = "sprz_canter"
+                      keyPassword = "sprzcanter2026"
+                  }
+              }
+              buildTypes {"""
+              if "sprzCanter" not in g:
+                  g = g.replace("buildTypes {", sign_block, 1)
                   g = g.replace(
-                      "signingConfig = signingConfigs.getByName(\"debug\")",
-                      "signingConfig = signingConfigs.getByName(\"debug\")\n            isMinifyEnabled = false\n            isShrinkResources = false",
+                      'signingConfig = signingConfigs.getByName("debug")',
+                      'signingConfig = signingConfigs.getByName("sprzCanter")\n            isMinifyEnabled = false\n            isShrinkResources = false',
                       1
                   )
               g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
@@ -153,6 +260,6 @@ jobs:
       - name: APK dosyasini hazirla
         uses: actions/upload-artifact@v4
         with:
-          name: Risale-Vecize-APK
+          name: Nurdan-Vecizeler-APK
           path: app_build/build/app/outputs/flutter-apk/app-release.apk
 # --- APK YML BİTTİ ---

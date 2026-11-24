@@ -143,8 +143,8 @@ String _temizle(String s) => s.trim().replaceAll(RegExp(r'^[“"]|[”"]$'), '')
 
 Future<void> vecizeEkleGoster({required BuildContext context, required List<Vecize> tumVecizeler, required UygulamaTemasi tema, required Future<void> Function(List<Vecize>) onEkle}) async {
   final eserler = eserListesi.where((e) => e != 'Tümü').toList();
-  String seciliEser = eserler.first;
-  final arapcaCtrl = TextEditingController(), metinCtrl = TextEditingController(), kaynakCtrl = TextEditingController();
+  String seciliEser = eserler.contains('Sözler') ? 'Sözler' : eserler.first;
+  final metinCtrl = TextEditingController();
 
   await showModalBottomSheet(
     context: context,
@@ -159,42 +159,34 @@ Future<void> vecizeEkleGoster({required BuildContext context, required List<Veci
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Yeni Vecize / Âyet / Hadis Ekle', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: tema.koyuMu ? tema.vurgu : tema.ana)),
+              Text('Vecize Ekle', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: tema.koyuMu ? tema.vurgu : tema.ana)),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: seciliEser,
                 dropdownColor: tema.kart,
                 style: TextStyle(color: tema.yazi, fontFamily: 'KitapSerif'),
-                decoration: InputDecoration(labelText: 'Kitap / Bölüm', filled: true, fillColor: tema.kart, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                decoration: InputDecoration(labelText: 'Kitap Seçin', filled: true, fillColor: tema.kart, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
                 items: eserler.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (v) { if (v != null) setModal(() => seciliEser = v); },
               ),
-              if (seciliEser == 'Kur’an-ı Kerim') ...[
-                const SizedBox(height: 10),
-                TextField(controller: arapcaCtrl, textDirection: TextDirection.rtl, maxLines: 2, style: TextStyle(color: tema.yazi, fontFamily: 'MushafFont', fontSize: 20), decoration: InputDecoration(labelText: 'Arapça Âyet Metni', filled: true, fillColor: tema.kart, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-              ],
               const SizedBox(height: 10),
-              TextField(controller: metinCtrl, maxLines: 4, style: TextStyle(color: tema.yazi, fontFamily: 'KitapSerif'), decoration: InputDecoration(labelText: 'Metin / Meal', hintText: 'Birden fazla için boş satır bırakın...', filled: true, fillColor: tema.kart, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-              const SizedBox(height: 10),
-              TextField(controller: kaynakCtrl, style: TextStyle(color: tema.yazi, fontFamily: 'KitapSerif'), decoration: InputDecoration(labelText: 'Kaynak', filled: true, fillColor: tema.kart, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+              TextField(
+                controller: metinCtrl,
+                maxLines: 5,
+                minLines: 3,
+                autofocus: true,
+                style: TextStyle(color: tema.yazi, fontFamily: 'KitapSerif'),
+                decoration: InputDecoration(labelText: 'Vecize', hintText: 'Vecizeyi buraya yazın...', alignLabelWithHint: true, filled: true, fillColor: tema.kart, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+              ),
               const SizedBox(height: 14),
               FilledButton.icon(
                 style: FilledButton.styleFrom(backgroundColor: tema.ana, padding: const EdgeInsets.symmetric(vertical: 14)),
                 onPressed: () async {
-                  final bloklar = metinCtrl.text.split(RegExp(r'\n\s*\n'));
-                  final yeniler = <Vecize>[];
-                  for (final b in bloklar) {
-                    if (b.trim().isEmpty) continue;
-                    String m = b, k = kaynakCtrl.text.trim();
-                    if (b.contains('|')) { final i = b.lastIndexOf('|'); m = b.substring(0, i); k = b.substring(i + 1).trim(); }
-                    m = _temizle(m);
-                    if (k.isEmpty) k = seciliEser;
-                    if (m.isNotEmpty && !tumVecizeler.any((v) => v.metin == m) && !yeniler.any((v) => v.metin == m)) {
-                      yeniler.add(Vecize(metin: m, kaynak: k, eser: seciliEser, arapca: arapcaCtrl.text.trim()));
-                    }
+                  final m = _temizle(metinCtrl.text);
+                  if (m.isEmpty) return;
+                  if (!tumVecizeler.any((v) => v.metin == m)) {
+                    await onEkle([Vecize(metin: m, kaynak: seciliEser, eser: seciliEser, arapca: '')]);
                   }
-                  if (yeniler.isEmpty) return;
-                  await onEkle(yeniler);
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 icon: const Icon(Icons.check),

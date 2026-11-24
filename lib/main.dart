@@ -410,8 +410,7 @@ class AnaSayfaState extends State<AnaSayfa> {
       },
     );
   }
-
-  Future<void> _vecizeDuzenlePenceresi(Vecize eskiVecize) async {
+    Future<void> _vecizeDuzenlePenceresi(Vecize eskiVecize) async {
     final kitapListesi = _sabitKitaplar.contains(eskiVecize.eser)
         ? _sabitKitaplar
         : [eskiVecize.eser, ..._sabitKitaplar];
@@ -547,8 +546,7 @@ class AnaSayfaState extends State<AnaSayfa> {
       },
     );
   }
-// --- PARÇA 1 SONU ---
-// --- PARÇA 2A BAŞLANGICI ---
+
   Future<void> _bildirimAyarlariPenceresi() async {
     await showModalBottomSheet(
       context: context,
@@ -649,9 +647,238 @@ class AnaSayfaState extends State<AnaSayfa> {
                           DropdownMenuItem(
                               value: 240, child: Text('4 Saatte Bir')),
                         ],
-                        onChanged
-                        // --- PARÇA 2B BAŞLANGICI ---
-  Widget _vecizelerGovdesi(_TemaPaleti tema) {
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() {
+                              _periyodikDk = val;
+                            });
+                          }
+                        },
+                      ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF14532D),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                      ),
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('Saatleri Kaydet ve Bildirimleri Kur'),
+                      onPressed: () async {
+                        await _ayarlariKaydet();
+                        await _izinVePlanla();
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(_sonrakiBildirimSaati != null
+                                  ? 'Kuruldu! İlk bildirim $_sonrakiBildirimSaati saatinde gelecek.'
+                                  : 'Bildirim ayarları güncellendi.'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _gorunumAyarlariPenceresi() async {
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Center(
+                      child: Text(
+                        'Kitap Görünümü & Yazı Ayarları',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Tema Seçimi',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(_temalar.length, (i) {
+                        final t = _temalar[i];
+                        return ChoiceChip(
+                          label: Text(t.ad),
+                          selected: _temaIndex == i,
+                          onSelected: (_) async {
+                            setModalState(() => _temaIndex = i);
+                            setState(() => _temaIndex = i);
+                            await _ayarlariKaydet();
+                          },
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Yazı Tipi',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Kitap Serif'),
+                          selected: _yaziTipi == 'KitapSerif',
+                          onSelected: (_) async {
+                            setModalState(() => _yaziTipi = 'KitapSerif');
+                            setState(() => _yaziTipi = 'KitapSerif');
+                            await _ayarlariKaydet();
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Hat Başlık'),
+                          selected: _yaziTipi == 'HatBaslik',
+                          onSelected: (_) async {
+                            setModalState(() => _yaziTipi = 'HatBaslik');
+                            setState(() => _yaziTipi = 'HatBaslik');
+                            await _ayarlariKaydet();
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Sade'),
+                          selected: _yaziTipi == '',
+                          onSelected: (_) async {
+                            setModalState(() => _yaziTipi = '');
+                            setState(() => _yaziTipi = '');
+                            await _ayarlariKaydet();
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Yazı Boyutu: ${_yaziBoyutu.round()} pt',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Slider(
+                      min: 15,
+                      max: 28,
+                      divisions: 13,
+                      value: _yaziBoyutu,
+                      onChanged: (val) async {
+                        setModalState(() => _yaziBoyutu = val);
+                        setState(() => _yaziBoyutu = val);
+                        await _ayarlariKaydet();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = _temalar[_temaIndex];
+
+    return Scaffold(
+      backgroundColor: tema.arkaPlan,
+      appBar: AppBar(
+        backgroundColor: tema.arkaPlan,
+        foregroundColor: tema.metin,
+        elevation: 0,
+        title: Text(
+          'Nurdan Vecizeler',
+          style: TextStyle(
+            fontFamily: 'HatBaslik',
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            color: tema.metin,
+          ),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Anlık Bildirim Testi',
+            icon: Icon(Icons.notifications_active_outlined, color: tema.vurgu),
+            onPressed: () => anlikTestBildirim(_havuzVecizeler, _aktifIndex),
+          ),
+          IconButton(
+            tooltip: '10 Saniyelik Zamanlı Test',
+            icon: Icon(Icons.timer_outlined, color: tema.vurgu),
+            onPressed: () =>
+                zamanliTestBildirim(context, _havuzVecizeler, _aktifIndex),
+          ),
+          IconButton(
+            tooltip: 'Bildirim Saatleri',
+            icon: Icon(Icons.alarm, color: tema.vurgu),
+            onPressed: _bildirimAyarlariPenceresi,
+          ),
+          IconButton(
+            tooltip: 'Word Yükle & Tam Yedekleme',
+            icon: Icon(Icons.folder_special_outlined, color: tema.vurgu),
+            onPressed: () => yedekVeTopluYuklePenceresi(
+              context: context,
+              onVerilerGuncellendi: () async {
+                await _ayarlariYukle();
+                await _izinVePlanla();
+              },
+            ),
+          ),
+          IconButton(
+            tooltip: 'Tema & Yazı Ayarları',
+            icon: Icon(Icons.palette_outlined, color: tema.vurgu),
+            onPressed: _gorunumAyarlariPenceresi,
+          ),
+        ],
+      ),
+      body: _sekmeIndex == 0 ? _vecizelerGovdesi(tema) : _favorilerGovdesi(tema),
+      floatingActionButton: _sekmeIndex == 0
+          ? FloatingActionButton.small(
+              backgroundColor: tema.vurgu,
+              foregroundColor: tema.koyu ? Colors.black : Colors.white,
+              tooltip: 'Tek Vecize Ekle',
+              onPressed: _tekVecizeEklePenceresi,
+              child: const Icon(Icons.edit_note_rounded),
+            )
+          : null,
+      bottomNavigationBar: NavigationBar(
+        backgroundColor: tema.kartArkaPlan,
+        selectedIndex: _sekmeIndex,
+        onDestinationSelected: (idx) => setState(() => _sekmeIndex = idx),
+        destinations: [
+          const NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: 'Külliyat',
+          ),
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: _favoriler.isNotEmpty,
+              label: Text('${_favoriler.length}'),
+              child: const Icon(Icons.bookmark_border),
+            ),
+            selectedIcon: const Icon(Icons.bookmark),
+            label: 'Favorilerim',
+          ),
+        ],
+      ),
+    );
+  }
+    Widget _vecizelerGovdesi(_TemaPaleti tema) {
     final liste = _filtreliVecizeler;
     final guvenliIndex = liste.isEmpty ? 0 : _aktifIndex % liste.length;
     final aktifVecize = liste.isNotEmpty ? liste[guvenliIndex] : null;
@@ -1045,5 +1272,3 @@ class AnaSayfaState extends State<AnaSayfa> {
     );
   }
 }
-// --- ANA DOSYA BİTTİ ---
-                        

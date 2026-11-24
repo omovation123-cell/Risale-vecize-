@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
@@ -98,6 +99,25 @@ const List<_TemaPaleti> _temalar = [
   ),
 ];
 
+const List<String> _sabitKitaplar = [
+  'Kur’an-ı Kerim',
+  'Hadis-i Şerif',
+  'Sözler',
+  'Mektubat',
+  'Lem’alar',
+  'Şualar',
+  'İşârâtü’l-İ’câz',
+  'Mesnevî-i Nuriye',
+  'Barla Lâhikası',
+  'Kastamonu Lâhikası',
+  'Emirdağ Lâhikası',
+  'Tarihçe-i Hayat',
+  'Sikke-i Tasdik-i Gaybî',
+  'Asâ-yı Mûsâ',
+  'Muhâkemât',
+  'İman ve Küfür Muvazeneleri',
+];
+
 class AnaSayfa extends StatefulWidget {
   const AnaSayfa({super.key});
 
@@ -108,6 +128,7 @@ class AnaSayfa extends StatefulWidget {
 class AnaSayfaState extends State<AnaSayfa> {
   List<Vecize> _tumVecizeler = List<Vecize>.from(varsayilanVecizeler);
   List<Vecize> _havuzVecizeler = List<Vecize>.from(varsayilanVecizeler);
+  Set<String> _gizliMetinler = {};
 
   int _sekmeIndex = 0;
   int _aktifIndex = 0;
@@ -155,10 +176,12 @@ class AnaSayfaState extends State<AnaSayfa> {
   Future<void> _ayarlariYukle() async {
     final prefs = await SharedPreferences.getInstance();
     final ozeller = await ozelVecizeleriGetir();
+    final gizliler =
+        (prefs.getStringList('sprz_duzenlenen_eskiler_v1') ?? []).toSet();
 
     final birlesik = <Vecize>[
       ...ozeller,
-      ...varsayilanVecizeler,
+      ...varsayilanVecizeler.where((v) => !gizliler.contains(v.metin)),
     ];
 
     final kayitliFav = prefs.getStringList('favoriler') ?? [];
@@ -174,6 +197,7 @@ class AnaSayfaState extends State<AnaSayfa> {
 
     if (!mounted) return;
     setState(() {
+      _gizliMetinler = gizliler;
       _tumVecizeler = birlesik;
       _havuzVecizeler = adilListe.isNotEmpty ? adilListe : birlesik;
       _favoriler = kayitliFav.toSet();
@@ -218,7 +242,16 @@ class AnaSayfaState extends State<AnaSayfa> {
     await prefs.setString('yaziTipi', _yaziTipi);
     await prefs.setInt('aktifIndex', _aktifIndex);
   }
-    void paylasSecenekleriGoster(Vecize v) {
+
+  Future<void> _ozelListeyiKaydet(List<Vecize> liste) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'sprz_ozel_vecizeler_v1',
+      jsonEncode(liste.map((v) => v.toMap()).toList()),
+    );
+  }
+
+  void paylasSecenekleriGoster(Vecize v) {
     final metin = v.arapca.isNotEmpty
         ? '${v.arapca}\n\n“${v.metin}”\n\n— ${v.eser} (${v.kaynak})'
         : '“${v.metin}”\n\n— ${v.eser} (${v.kaynak})';
@@ -263,94 +296,260 @@ class AnaSayfaState extends State<AnaSayfa> {
   }
 
   Future<void> _tekVecizeEklePenceresi() async {
+    String seciliKitap =
+        _sabitKitaplar.contains(_seciliEser) ? _seciliEser : 'Sözler';
     final metinCtrl = TextEditingController();
-    final eserCtrl = TextEditingController(text: 'Sözler');
     final kaynakCtrl = TextEditingController();
     final arapcaCtrl = TextEditingController();
 
     await showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Yeni Vecize Ekle'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: arapcaCtrl,
-                  textDirection: TextDirection.rtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Arapça Metin (İsteğe bağlı)',
-                    border: OutlineInputBorder(),
-                  ),
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return AlertDialog(
+              title: const Text('Yeni Vecize Ekle'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: seciliKitap,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Kitap Seçin',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _sabitKitaplar
+                          .map((k) => DropdownMenuItem(
+                                value: k,
+                                child: Text(k, overflow: TextOverflow.ellipsis),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => seciliKitap = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: metinCtrl,
+                      maxLines: 4,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Vecize Metni *',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: kaynakCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Bölüm / Sayfa Kaynağı (İsteğe bağlı)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: arapcaCtrl,
+                      textDirection: TextDirection.rtl,
+                      decoration: const InputDecoration(
+                        labelText: 'Arapça Metin (İsteğe bağlı)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: metinCtrl,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Vecize Metni *',
-                    border: OutlineInputBorder(),
-                  ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('İptal'),
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: eserCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Eser Adı (Örn: Sözler, Mektubat)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: kaynakCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Bölüm / Sayfa Kaynağı',
-                    border: OutlineInputBorder(),
-                  ),
+                FilledButton(
+                  onPressed: () async {
+                    final m = metinCtrl.text.trim();
+                    if (m.isEmpty) return;
+                    final e = seciliKitap;
+                    final k = kaynakCtrl.text.trim().isEmpty
+                        ? e
+                        : kaynakCtrl.text.trim();
+                    final a = arapcaCtrl.text.trim();
+
+                    final yeni =
+                        Vecize(metin: m, kaynak: k, eser: e, arapca: a);
+                    final ozeller = await ozelVecizeleriGetir();
+                    ozeller.insert(0, yeni);
+                    await _ozelListeyiKaydet(ozeller);
+                    await _ayarlariYukle();
+                    await _izinVePlanla();
+
+                    final yeniIdx = _filtreliVecizeler
+                        .indexWhere((v) => v.metin == yeni.metin);
+                    if (yeniIdx != -1 && mounted) {
+                      setState(() => _aktifIndex = yeniIdx);
+                      await _ayarlariKaydet();
+                    }
+
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'Vecize arşive ve bildirim havuzuna eklendi.')),
+                      );
+                    }
+                  },
+                  child: const Text('Kaydet'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('İptal'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final m = metinCtrl.text.trim();
-                if (m.isEmpty) return;
-                final e = eserCtrl.text.trim().isEmpty
-                    ? 'Kişisel Arşivim'
-                    : eserCtrl.text.trim();
-                final k = kaynakCtrl.text.trim().isEmpty
-                    ? e
-                    : kaynakCtrl.text.trim();
-                final a = arapcaCtrl.text.trim();
-
-                final satir = a.isNotEmpty ? '$a\n$m — $e, $k' : '$m — $e, $k';
-                await topluVecizeKaydet(satir);
-                await _ayarlariYukle();
-                await _izinVePlanla();
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text('Vecize arşive ve bildirim havuzuna eklendi.')),
-                  );
-                }
-              },
-              child: const Text('Kaydet'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
   }
-    Future<void> _bildirimAyarlariPenceresi() async {
+
+  Future<void> _vecizeDuzenlePenceresi(Vecize eskiVecize) async {
+    final kitapListesi = _sabitKitaplar.contains(eskiVecize.eser)
+        ? _sabitKitaplar
+        : [eskiVecize.eser, ..._sabitKitaplar];
+    String seciliKitap = eskiVecize.eser;
+    final metinCtrl = TextEditingController(text: eskiVecize.metin);
+    final kaynakCtrl = TextEditingController(text: eskiVecize.kaynak);
+    final arapcaCtrl = TextEditingController(text: eskiVecize.arapca);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return AlertDialog(
+              title: const Text('Vecizeyi Düzenle'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: seciliKitap,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Kitap Seçin',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: kitapListesi
+                          .map((k) => DropdownMenuItem(
+                                value: k,
+                                child: Text(k, overflow: TextOverflow.ellipsis),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => seciliKitap = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: metinCtrl,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Vecize Metni *',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: kaynakCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Bölüm / Sayfa Kaynağı',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: arapcaCtrl,
+                      textDirection: TextDirection.rtl,
+                      decoration: const InputDecoration(
+                        labelText: 'Arapça Metin (İsteğe bağlı)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('İptal'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final m = metinCtrl.text.trim();
+                    if (m.isEmpty) return;
+                    final e = seciliKitap;
+                    final k = kaynakCtrl.text.trim().isEmpty
+                        ? e
+                        : kaynakCtrl.text.trim();
+                    final a = arapcaCtrl.text.trim();
+
+                    final guncel =
+                        Vecize(metin: m, kaynak: k, eser: e, arapca: a);
+                    final ozeller = await ozelVecizeleriGetir();
+                    final ozelIdx = ozeller.indexWhere((v) =>
+                        v.metin == eskiVecize.metin &&
+                        v.eser == eskiVecize.eser);
+
+                    if (ozelIdx != -1) {
+                      ozeller[ozelIdx] = guncel;
+                    } else {
+                      ozeller.insert(0, guncel);
+                      _gizliMetinler.add(eskiVecize.metin);
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setStringList(
+                        'sprz_duzenlenen_eskiler_v1',
+                        _gizliMetinler.toList(),
+                      );
+                    }
+
+                    await _ozelListeyiKaydet(ozeller);
+
+                    if (_favoriler.contains(eskiVecize.metin)) {
+                      _favoriler.remove(eskiVecize.metin);
+                      _favoriler.add(guncel.metin);
+                      await _ayarlariKaydet();
+                    }
+
+                    await _ayarlariYukle();
+                    await _izinVePlanla();
+
+                    final yeniIdx = _filtreliVecizeler
+                        .indexWhere((v) => v.metin == guncel.metin);
+                    if (yeniIdx != -1 && mounted) {
+                      setState(() => _aktifIndex = yeniIdx);
+                      await _ayarlariKaydet();
+                    }
+
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Vecize güncellendi.')),
+                      );
+                    }
+                  },
+                  child: const Text('Güncelle'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+// --- PARÇA 1 SONU ---
+// --- PARÇA 2A BAŞLANGICI ---
+  Future<void> _bildirimAyarlariPenceresi() async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -450,238 +649,9 @@ class AnaSayfaState extends State<AnaSayfa> {
                           DropdownMenuItem(
                               value: 240, child: Text('4 Saatte Bir')),
                         ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setModalState(() {
-                              _periyodikDk = val;
-                            });
-                          }
-                        },
-                      ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF14532D),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                      ),
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Saatleri Kaydet ve Bildirimleri Kur'),
-                      onPressed: () async {
-                        await _ayarlariKaydet();
-                        await _izinVePlanla();
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(_sonrakiBildirimSaati != null
-                                  ? 'Kuruldu! İlk bildirim $_sonrakiBildirimSaati saatinde gelecek.'
-                                  : 'Bildirim ayarları güncellendi.'),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _gorunumAyarlariPenceresi() async {
-    await showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Center(
-                      child: Text(
-                        'Kitap Görünümü & Yazı Ayarları',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('Tema Seçimi',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: List.generate(_temalar.length, (i) {
-                        final t = _temalar[i];
-                        return ChoiceChip(
-                          label: Text(t.ad),
-                          selected: _temaIndex == i,
-                          onSelected: (_) async {
-                            setModalState(() => _temaIndex = i);
-                            setState(() => _temaIndex = i);
-                            await _ayarlariKaydet();
-                          },
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('Yazı Tipi',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('Kitap Serif'),
-                          selected: _yaziTipi == 'KitapSerif',
-                          onSelected: (_) async {
-                            setModalState(() => _yaziTipi = 'KitapSerif');
-                            setState(() => _yaziTipi = 'KitapSerif');
-                            await _ayarlariKaydet();
-                          },
-                        ),
-                        ChoiceChip(
-                          label: const Text('Hat Başlık'),
-                          selected: _yaziTipi == 'HatBaslik',
-                          onSelected: (_) async {
-                            setModalState(() => _yaziTipi = 'HatBaslik');
-                            setState(() => _yaziTipi = 'HatBaslik');
-                            await _ayarlariKaydet();
-                          },
-                        ),
-                        ChoiceChip(
-                          label: const Text('Sade'),
-                          selected: _yaziTipi == '',
-                          onSelected: (_) async {
-                            setModalState(() => _yaziTipi = '');
-                            setState(() => _yaziTipi = '');
-                            await _ayarlariKaydet();
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Yazı Boyutu: ${_yaziBoyutu.round()} pt',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Slider(
-                      min: 15,
-                      max: 28,
-                      divisions: 13,
-                      value: _yaziBoyutu,
-                      onChanged: (val) async {
-                        setModalState(() => _yaziBoyutu = val);
-                        setState(() => _yaziBoyutu = val);
-                        await _ayarlariKaydet();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tema = _temalar[_temaIndex];
-
-    return Scaffold(
-      backgroundColor: tema.arkaPlan,
-      appBar: AppBar(
-        backgroundColor: tema.arkaPlan,
-        foregroundColor: tema.metin,
-        elevation: 0,
-        title: Text(
-          'Nurdan Vecizeler',
-          style: TextStyle(
-            fontFamily: 'HatBaslik',
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-            color: tema.metin,
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Anlık Bildirim Testi',
-            icon: Icon(Icons.notifications_active_outlined, color: tema.vurgu),
-            onPressed: () => anlikTestBildirim(_havuzVecizeler, _aktifIndex),
-          ),
-          IconButton(
-            tooltip: '10 Saniyelik Zamanlı Test',
-            icon: Icon(Icons.timer_outlined, color: tema.vurgu),
-            onPressed: () =>
-                zamanliTestBildirim(context, _havuzVecizeler, _aktifIndex),
-          ),
-          IconButton(
-            tooltip: 'Bildirim Saatleri',
-            icon: Icon(Icons.alarm, color: tema.vurgu),
-            onPressed: _bildirimAyarlariPenceresi,
-          ),
-          IconButton(
-            tooltip: 'Word Yükle & Tam Yedekleme',
-            icon: Icon(Icons.folder_special_outlined, color: tema.vurgu),
-            onPressed: () => yedekVeTopluYuklePenceresi(
-              context: context,
-              onVerilerGuncellendi: () async {
-                await _ayarlariYukle();
-                await _izinVePlanla();
-              },
-            ),
-          ),
-          IconButton(
-            tooltip: 'Tema & Yazı Ayarları',
-            icon: Icon(Icons.palette_outlined, color: tema.vurgu),
-            onPressed: _gorunumAyarlariPenceresi,
-          ),
-        ],
-      ),
-      body: _sekmeIndex == 0 ? _vecizelerGovdesi(tema) : _favorilerGovdesi(tema),
-      floatingActionButton: _sekmeIndex == 0
-          ? FloatingActionButton.small(
-              backgroundColor: tema.vurgu,
-              foregroundColor: tema.koyu ? Colors.black : Colors.white,
-              tooltip: 'Tek Vecize Ekle',
-              onPressed: _tekVecizeEklePenceresi,
-              child: const Icon(Icons.edit_note_rounded),
-            )
-          : null,
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: tema.kartArkaPlan,
-        selectedIndex: _sekmeIndex,
-        onDestinationSelected: (idx) => setState(() => _sekmeIndex = idx),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Külliyat',
-          ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: _favoriler.isNotEmpty,
-              label: Text('${_favoriler.length}'),
-              child: const Icon(Icons.bookmark_border),
-            ),
-            selectedIcon: const Icon(Icons.bookmark),
-            label: 'Favorilerim',
-          ),
-        ],
-      ),
-    );
-  }
-    Widget _vecizelerGovdesi(_TemaPaleti tema) {
+                        onChanged
+                        // --- PARÇA 2B BAŞLANGICI ---
+  Widget _vecizelerGovdesi(_TemaPaleti tema) {
     final liste = _filtreliVecizeler;
     final guvenliIndex = liste.isEmpty ? 0 : _aktifIndex % liste.length;
     final aktifVecize = liste.isNotEmpty ? liste[guvenliIndex] : null;
@@ -920,6 +890,13 @@ class AnaSayfaState extends State<AnaSayfa> {
                               onPressed: () => _favoriDegistir(aktifVecize),
                             ),
                             IconButton(
+                              tooltip: 'Vecizeyi Düzenle',
+                              icon: Icon(Icons.edit_outlined,
+                                  color: tema.vurgu),
+                              onPressed: () =>
+                                  _vecizeDuzenlePenceresi(aktifVecize),
+                            ),
+                            IconButton(
                               tooltip: 'Paylaş',
                               icon:
                                   Icon(Icons.share_outlined, color: tema.metin),
@@ -1040,6 +1017,12 @@ class AnaSayfaState extends State<AnaSayfa> {
                             ),
                           ),
                           IconButton(
+                            tooltip: 'Vecizeyi Düzenle',
+                            icon: Icon(Icons.edit_outlined,
+                                size: 20, color: tema.vurgu),
+                            onPressed: () => _vecizeDuzenlePenceresi(v),
+                          ),
+                          IconButton(
                             icon: Icon(Icons.share_outlined,
                                 size: 20, color: tema.vurgu),
                             onPressed: () => paylasSecenekleriGoster(v),
@@ -1063,3 +1046,4 @@ class AnaSayfaState extends State<AnaSayfa> {
   }
 }
 // --- ANA DOSYA BİTTİ ---
+                        

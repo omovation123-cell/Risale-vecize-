@@ -245,16 +245,46 @@ class AnaSayfaState extends State<AnaSayfa> {
 
   Future<void> _ozelListeyiKaydet(List<Vecize> liste) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    await prefs.setStringList(
       'sprz_ozel_vecizeler_v1',
-      jsonEncode(liste.map((v) => v.toMap()).toList()),
+      liste.map((v) => jsonEncode(v.toMap())).toList(),
     );
   }
 
+  String _tamKaynakMetni(Vecize v) {
+    final e = v.eser.trim();
+    final k = v.kaynak.trim();
+    if (k.isEmpty || k.toLowerCase() == e.toLowerCase()) return e;
+    if (k.toLowerCase().startsWith(e.toLowerCase())) return k;
+    return '$e, $k';
+  }
+
+  String _kaynakBirlestir(String eser, String hamKaynak) {
+    final e = eser.trim();
+    final k = hamKaynak.trim();
+    if (k.isEmpty || k.toLowerCase() == e.toLowerCase()) return e;
+    if (k.toLowerCase().startsWith(e.toLowerCase())) return k;
+    return '$e, $k';
+  }
+
+  String _bolumAyikla(String eser, String kaynak) {
+    final e = eser.trim();
+    final k = kaynak.trim();
+    if (k.isEmpty || k.toLowerCase() == e.toLowerCase()) return '';
+    if (k.toLowerCase().startsWith('${e.toLowerCase()},')) {
+      return k.substring(e.length + 1).trim();
+    }
+    if (k.toLowerCase().startsWith('${e.toLowerCase()} -')) {
+      return k.substring(e.length + 2).trim();
+    }
+    return k;
+  }
+
   void paylasSecenekleriGoster(Vecize v) {
+    final kaynak = _tamKaynakMetni(v);
     final metin = v.arapca.isNotEmpty
-        ? '${v.arapca}\n\n“${v.metin}”\n\n— ${v.eser} (${v.kaynak})'
-        : '“${v.metin}”\n\n— ${v.eser} (${v.kaynak})';
+        ? '${v.arapca}\n\n“${v.metin}”\n\n— $kaynak'
+        : '“${v.metin}”\n\n— $kaynak';
     Share.share(metin);
   }
 
@@ -346,7 +376,7 @@ class AnaSayfaState extends State<AnaSayfa> {
                     TextField(
                       controller: kaynakCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'Bölüm / Sayfa Kaynağı (İsteğe bağlı)',
+                        labelText: 'Bölüm / Sayfa Kaynağı (Örn: 1. Söz, s. 12)',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -372,32 +402,37 @@ class AnaSayfaState extends State<AnaSayfa> {
                     final m = metinCtrl.text.trim();
                     if (m.isEmpty) return;
                     final e = seciliKitap;
-                    final k = kaynakCtrl.text.trim().isEmpty
-                        ? e
-                        : kaynakCtrl.text.trim();
+                    final k = _kaynakBirlestir(e, kaynakCtrl.text);
                     final a = arapcaCtrl.text.trim();
 
                     final yeni =
                         Vecize(metin: m, kaynak: k, eser: e, arapca: a);
                     final ozeller = await ozelVecizeleriGetir();
+                    ozeller.removeWhere((v) => v.metin.trim() == m);
                     ozeller.insert(0, yeni);
                     await _ozelListeyiKaydet(ozeller);
                     await _ayarlariYukle();
-                    await _izinVePlanla();
 
-                    final yeniIdx = _filtreliVecizeler
-                        .indexWhere((v) => v.metin == yeni.metin);
-                    if (yeniIdx != -1 && mounted) {
-                      setState(() => _aktifIndex = yeniIdx);
+                    if (mounted) {
+                      _aramaCtrl.clear();
+                      setState(() {
+                        _seciliEser = 'Tümü';
+                        _aramaMetni = '';
+                        final idx = _filtreliVecizeler
+                            .indexWhere((v) => v.metin == yeni.metin);
+                        _aktifIndex = idx != -1 ? idx : 0;
+                      });
                       await _ayarlariKaydet();
                     }
+
+                    await _izinVePlanla();
 
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                             content: Text(
-                                'Vecize arşive ve bildirim havuzuna eklendi.')),
+                                'Vecize kaydedildi ve ana ekranda açıldı.')),
                       );
                     }
                   },
@@ -416,7 +451,9 @@ class AnaSayfaState extends State<AnaSayfa> {
         : [eskiVecize.eser, ..._sabitKitaplar];
     String seciliKitap = eskiVecize.eser;
     final metinCtrl = TextEditingController(text: eskiVecize.metin);
-    final kaynakCtrl = TextEditingController(text: eskiVecize.kaynak);
+    final kaynakCtrl = TextEditingController(
+      text: _bolumAyikla(eskiVecize.eser, eskiVecize.kaynak),
+    );
     final arapcaCtrl = TextEditingController(text: eskiVecize.arapca);
 
     await showDialog(
@@ -462,7 +499,7 @@ class AnaSayfaState extends State<AnaSayfa> {
                     TextField(
                       controller: kaynakCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'Bölüm / Sayfa Kaynağı',
+                        labelText: 'Bölüm / Sayfa Kaynağı (Örn: 1. Söz, s. 12)',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -488,9 +525,7 @@ class AnaSayfaState extends State<AnaSayfa> {
                     final m = metinCtrl.text.trim();
                     if (m.isEmpty) return;
                     final e = seciliKitap;
-                    final k = kaynakCtrl.text.trim().isEmpty
-                        ? e
-                        : kaynakCtrl.text.trim();
+                    final k = _kaynakBirlestir(e, kaynakCtrl.text);
                     final a = arapcaCtrl.text.trim();
 
                     final guncel =
@@ -521,14 +556,20 @@ class AnaSayfaState extends State<AnaSayfa> {
                     }
 
                     await _ayarlariYukle();
-                    await _izinVePlanla();
 
-                    final yeniIdx = _filtreliVecizeler
-                        .indexWhere((v) => v.metin == guncel.metin);
-                    if (yeniIdx != -1 && mounted) {
-                      setState(() => _aktifIndex = yeniIdx);
+                    if (mounted) {
+                      _aramaCtrl.clear();
+                      setState(() {
+                        _seciliEser = 'Tümü';
+                        _aramaMetni = '';
+                        final idx = _filtreliVecizeler
+                            .indexWhere((v) => v.metin == guncel.metin);
+                        _aktifIndex = idx != -1 ? idx : 0;
+                      });
                       await _ayarlariKaydet();
                     }
+
+                    await _izinVePlanla();
 
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (mounted) {
@@ -1068,7 +1109,7 @@ class AnaSayfaState extends State<AnaSayfa> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          '— ${aktifVecize.kaynak} —',
+                          '— ${_tamKaynakMetni(aktifVecize)} —',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: 'KitapSerif',
@@ -1235,7 +1276,7 @@ class AnaSayfaState extends State<AnaSayfa> {
                         children: [
                           Expanded(
                             child: Text(
-                              '${v.eser} • ${v.kaynak}',
+                              _tamKaynakMetni(v),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: tema.altMetin,
